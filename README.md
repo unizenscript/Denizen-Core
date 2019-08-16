@@ -1,44 +1,36 @@
-DenizenCore
-===========
+# Denizen Core
 
-The core Denizen engine
+The core Denizen engine.
 
-To be implemented and extended by separate DenizenScript projects.
+To be implemented and extended by separate projects.
 
-### Licensing pre-note:
+## License
 
-This is an open source project, provided entirely freely, for everyone to use and contribute to.
+This is an open source project for everyone to use and contribute to, free of any cost or fee.
 
-If you make any changes that could benefit the community as a whole, please contribute upstream.
+You may also view the license information [here](LICENSE.txt).
 
-### The short of the license is:
+### Short Description
 
-You can do basically whatever you want, except you may not hold any developer liable for what you do with the software.
+You are free to use and modify the software, with no cost or fee. You may not hold any developer liable for what you do
+with the software.
 
-### Previous License
-
-Copyright (C) 2014-2019 The Denizen Script Team, All Rights Reserved.
-
-### The long version of the license follows:
+### Full License
 
 The MIT License (MIT)
 
-Copyright (c) 2019 The Denizen Script Team
+Copyright (c) 2012-2019 the Denizen contributors, including all contributions pulled upstream from the Denizen project.
+Copyright (c) 2019 the Unizen contributors.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
