@@ -15,6 +15,7 @@ import com.denizenscript.denizencore.tags.TagManager;
 import org.json.JSONObject;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 public class ScriptTag implements ObjectTag, Adjustable {
@@ -423,9 +424,11 @@ public class ScriptTag implements ObjectTag, Adjustable {
                     return list.getAttribute(attribute.fulfill(1));
 
                 }
+                else if (obj instanceof LinkedHashMap) {
+                    return null;
+                }
                 else {
-                    return new ElementTag(obj.toString())
-                            .getAttribute(attribute.fulfill(1));
+                    return new ElementTag(obj.toString()).getAttribute(attribute);
                 }
             }
         });
