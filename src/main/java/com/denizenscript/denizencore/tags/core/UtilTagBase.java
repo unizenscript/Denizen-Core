@@ -3,8 +3,9 @@ package com.denizenscript.denizencore.tags.core;
 import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.DurationTag;
 import com.denizenscript.denizencore.objects.core.ElementTag;
+import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
-import com.denizenscript.denizencore.utilities.debugging.SlowWarning;
+import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.tags.Attribute;
@@ -28,15 +29,13 @@ public class UtilTagBase {
         }, "util", "u");
     }
 
-    public SlowWarning utilShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'util' instead of 'u' as a root tag.");
-
     public void utilTag(ReplaceableTagEvent event) {
         if (!event.matches("util", "u")) {
             return;
         }
 
         if (event.matches("u")) {
-            utilShorthand.warn(event.getScriptEntry());
+            Deprecations.utilShorthand.warn(event.getScriptEntry());
         }
 
         Attribute attribute = event.getAttributes().fulfill(1);
@@ -147,7 +146,7 @@ public class UtilTagBase {
             // -->
             else if (attribute.startsWith("duuid")) {
                 event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(
-                        attribute.hasContext(1) ? attribute.getContext(1) : "DUUID"),
+                        attribute.hasContext(1) ? attribute.getContext(1) : ScriptQueue.getNextId("DUUID")),
                         attribute.fulfill(1)));
             }
         }

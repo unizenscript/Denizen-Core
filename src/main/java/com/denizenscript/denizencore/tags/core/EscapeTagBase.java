@@ -4,9 +4,9 @@ import com.denizenscript.denizencore.objects.core.ElementTag;
 import com.denizenscript.denizencore.objects.TagRunnable;
 import com.denizenscript.denizencore.tags.ReplaceableTagEvent;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
+import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.tags.TagManager;
-import com.denizenscript.denizencore.utilities.debugging.SlowWarning;
 
 public class EscapeTagBase {
 
@@ -56,9 +56,14 @@ public class EscapeTagBase {
     //
     // Also, you can input a non-breaking space via &sp
     //
+    // Note that these are NOT tag names. They are exclusively used by the escaping system.
+    //
     // These symbols are automatically used by the internal system, if you are
     // writing your own property string and need to escape some symbols, you
     // can just directly type them in, EG: stick[display_name=&ltFancy&spStick&gt]
+    //
+    // You can use these escape codes in a tag via <@link tag ElementTag.escaped> and <@link tag ElementTag.unescaped>.
+    //
     // -->
 
     /**
@@ -108,10 +113,8 @@ public class EscapeTagBase {
                 .replace("&ns", "#").replace("&amp", "&");
     }
 
-    public SlowWarning oldEscapeTags = new SlowWarning("'escape:' tags are deprecated. Please use '.escaped' element tags instead.");
-
     public void escapeTags(ReplaceableTagEvent event) {
-        oldEscapeTags.warn(event.getScriptEntry());
+        Deprecations.oldEscapeTags.warn(event.getScriptEntry());
         if (event.matches("escape")) {
             if (!event.hasValue()) {
                 Debug.echoError("Escape tag '" + event.raw_tag + "' does not have a value!");
@@ -122,7 +125,7 @@ public class EscapeTagBase {
     }
 
     public void unEscapeTags(ReplaceableTagEvent event) {
-        oldEscapeTags.warn(event.getScriptEntry());
+        Deprecations.oldEscapeTags.warn(event.getScriptEntry());
         if (event.matches("unescape")) {
             if (!event.hasValue()) {
                 Debug.echoError("Unescape tag '" + event.raw_tag + "' does not have a value!");
