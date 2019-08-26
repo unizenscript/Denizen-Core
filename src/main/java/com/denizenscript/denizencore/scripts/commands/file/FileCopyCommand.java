@@ -137,6 +137,9 @@ public class FileCopyCommand extends AbstractCommand implements Holdable {
                         CoreUtilities.copyDirectory(o, d);
                     }
                     else {
+                        if (!Files.exists(d.toPath().getParent())) {
+                            Files.createDirectories((d.toPath().getParent()));
+                        }
                         Files.copy(o.toPath(), (disdir ? d.toPath().resolve(o.toPath().getFileName()) : d.toPath()));
                     }
                     scriptEntry.addObject("success", new ElementTag("true"));
