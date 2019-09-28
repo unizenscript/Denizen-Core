@@ -2,7 +2,7 @@ package com.denizenscript.denizencore.objects;
 
 import com.denizenscript.denizencore.objects.core.ElementTag;
 import com.denizenscript.denizencore.tags.Attribute;
-import com.denizenscript.denizencore.tags.TagContext;
+import com.denizenscript.denizencore.utilities.CoreUtilities;
 
 public interface ObjectTag {
 
@@ -117,13 +117,8 @@ public interface ObjectTag {
      */
     ObjectTag setPrefix(String prefix);
 
-    default Class<? extends ObjectTag> getdObjectClass() {
+    default Class<? extends ObjectTag> getObjectTagClass() {
         return getClass();
-    }
-
-    default ObjectTag getObjectAttribute(Attribute attribute) {
-        String res = getAttribute(attribute);
-        return res == null ? null : new ElementTag(res);
     }
 
     /**
@@ -132,10 +127,27 @@ public interface ObjectTag {
      * @param attribute the name of the attribute
      * @return a string result of the fetched attribute
      */
-    String getAttribute(Attribute attribute);
+    default ObjectTag getObjectAttribute(Attribute attribute) {
+        String res = getAttribute(attribute);
+        return res == null ? null : new ElementTag(res);
+    }
 
-    interface ObjectAttributable extends ObjectTag {
+    default String getAttribute(Attribute attribute) {
+        return CoreUtilities.stringifyNullPass(getObjectAttribute(attribute));
+    }
 
-        <T extends ObjectTag> T asObjectType(Class<T> type, TagContext context);
+    /**
+     * Get the "next object type down" - by default, an ElementTag of identify(), but can be different in some cases (eg a Player's next type down is Entity).
+     * Should never be null.
+     */
+    default ObjectTag getNextObjectTypeDown() {
+        return new ElementTag(identify());
+    }
+
+    /**
+     * Optional special dynamic tag handling
+     */
+    default ObjectTag specialTagProcessing(Attribute attribute) {
+        return null;
     }
 }

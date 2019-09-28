@@ -21,6 +21,8 @@ import java.util.*;
 
 public class CoreUtilities {
 
+    public static TagContext noDebugContext;
+
     public static String stringifyNullPass(Object obj) {
         return obj == null ? null : obj.toString();
     }
@@ -33,7 +35,7 @@ public class CoreUtilities {
     }
 
     public static void autoPropertyMechanism(ObjectTag object, Mechanism mechanism) {
-        PropertyParser.ClassPropertiesInfo properties = PropertyParser.propertiesByClass.get(object.getdObjectClass());
+        PropertyParser.ClassPropertiesInfo properties = PropertyParser.propertiesByClass.get(object.getObjectTagClass());
         if (properties == null) {
             return;
         }
@@ -61,14 +63,17 @@ public class CoreUtilities {
         if (attribute.isComplete()) {
             return null;
         }
-        PropertyParser.ClassPropertiesInfo properties = PropertyParser.propertiesByClass.get(object.getdObjectClass());
+        PropertyParser.ClassPropertiesInfo properties = PropertyParser.propertiesByClass.get(object.getObjectTagClass());
         if (properties == null) {
             return null;
         }
-        PropertyParser.PropertyGetter specificGetter = properties.propertiesByTag.get(attribute.getAttributeWithoutContext(1));
+        String tagName = attribute.getAttributeWithoutContext(1);
+        PropertyParser.PropertyGetter specificGetter = properties.propertiesByTag.get(tagName);
         if (specificGetter != null) {
             Property prop = specificGetter.get(object);
             if (prop == null) {
+                String propName = properties.propertyNamesByTag.get(tagName);
+                attribute.seemingSuccesses.add(attribute.getAttributeWithoutContext(1) + " - property " + propName + " matched, but is not valid for the object.");
                 return null;
             }
             return prop.getObjectAttribute(attribute);
@@ -89,14 +94,17 @@ public class CoreUtilities {
         if (attribute.isComplete()) {
             return null;
         }
-        PropertyParser.ClassPropertiesInfo properties = PropertyParser.propertiesByClass.get(object.getdObjectClass());
+        PropertyParser.ClassPropertiesInfo properties = PropertyParser.propertiesByClass.get(object.getObjectTagClass());
         if (properties == null) {
             return null;
         }
-        PropertyParser.PropertyGetter specificGetter = properties.propertiesByTag.get(attribute.getAttributeWithoutContext(1));
+        String tagName = attribute.getAttributeWithoutContext(1);
+        PropertyParser.PropertyGetter specificGetter = properties.propertiesByTag.get(tagName);
         if (specificGetter != null) {
             Property prop = specificGetter.get(object);
             if (prop == null) {
+                String propName = properties.propertyNamesByTag.get(tagName);
+                attribute.seemingSuccesses.add(attribute.getAttributeWithoutContext(1) + " - property " + propName + " matched, but is not valid for the object.");
                 return null;
             }
             return prop.getAttribute(attribute);
@@ -136,17 +144,11 @@ public class CoreUtilities {
     }
 
     public static <T extends ObjectTag> T asType(ObjectTag inp, Class<T> type, TagContext context) {
-        if (inp.getdObjectClass() == type) {
+        if (inp.getObjectTagClass() == type) {
             return (T) inp;
         }
         if (type == ElementTag.class) {
             return (T) new ElementTag(inp.toString());
-        }
-        if (inp instanceof ObjectTag.ObjectAttributable) {
-            T temp = ((ObjectTag.ObjectAttributable) inp).asObjectType(type, context);
-            if (temp != null) {
-                return temp;
-            }
         }
         return ObjectFetcher.getObjectFrom(type, inp.toString(), context);
     }
@@ -193,7 +195,7 @@ public class CoreUtilities {
     }
 
     public static boolean canPossiblyBeType(ObjectTag inp, Class<? extends ObjectTag> type) {
-        if (inp.getdObjectClass() == type) {
+        if (inp.getObjectTagClass() == type) {
             return true;
         }
         TypeComparisonRunnable comp = typeCheckers.get(type);

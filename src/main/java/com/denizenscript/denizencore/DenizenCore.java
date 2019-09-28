@@ -7,6 +7,7 @@ import com.denizenscript.denizencore.events.core.ReloadScriptsScriptEvent;
 import com.denizenscript.denizencore.events.core.SystemTimeScriptEvent;
 import com.denizenscript.denizencore.events.core.TickScriptEvent;
 import com.denizenscript.denizencore.scripts.ScriptHelper;
+import com.denizenscript.denizencore.scripts.ScriptRegistry;
 import com.denizenscript.denizencore.scripts.commands.CommandRegistry;
 import com.denizenscript.denizencore.scripts.queues.ScriptEngine;
 import com.denizenscript.denizencore.utilities.debugging.LogInterceptor;
@@ -81,7 +82,7 @@ public class DenizenCore {
     public static void init(DenizenImplementation implementation) {
         currentTimeMillis = System.currentTimeMillis();
         DenizenCore.implementation = implementation;
-        MAIN_THREAD = implementation.getMainThread();
+        MAIN_THREAD = Thread.currentThread();
         Debug.log("Initializing Denizen Core v" + VERSION +
                 ", implementation for " + implementation.getImplementationName()
                 + " version " + implementation.getImplementationVersion());
@@ -90,22 +91,22 @@ public class DenizenCore {
     }
 
     /**
-     * Called after all objects are added and registered, to calculate
-     * everything that needs calculating.
+     * Call postLoadScripts first.
      */
-    public static void initSecondary() {
-
+    public static void preloadScripts() {
+        ScriptEvent.worldContainers.clear();
+        implementation.preScriptReload();
+        ScriptHelper.resetError();
+        ScriptHelper.reloadScripts();
     }
 
     /**
      * Called last in the init sequence, loads all scripts and starts the Denizen engine.
+     * Call preloadScripts first.
      */
-    public static void loadScripts() {
+    public static void postLoadScripts() {
         try {
-            ScriptEvent.worldContainers.clear();
-            implementation.preScriptReload();
-            ScriptHelper.resetError();
-            ScriptHelper.reloadScripts();
+            ScriptRegistry.postLoadScripts();
             OldEventManager.scanWorldEvents();
             ScriptEvent.reload();
             implementation.onScriptReload();
@@ -126,7 +127,8 @@ public class DenizenCore {
      * Call when a script reload is required (EG, requested by user command.)
      */
     public static void reloadScripts() {
-        loadScripts();
+        preloadScripts();
+        postLoadScripts();
     }
 
     public static final List<Schedulable> scheduled = new ArrayList<>();

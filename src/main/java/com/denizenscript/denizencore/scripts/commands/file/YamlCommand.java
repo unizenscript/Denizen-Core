@@ -6,7 +6,9 @@ import com.denizenscript.denizencore.objects.core.ElementTag;
 import com.denizenscript.denizencore.objects.core.ListTag;
 import com.denizenscript.denizencore.scripts.commands.AbstractCommand;
 import com.denizenscript.denizencore.scripts.commands.Holdable;
+import com.denizenscript.denizencore.tags.TagRunnable;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
+import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.YamlConfiguration;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.utilities.scheduling.AsyncSchedulable;
@@ -28,7 +30,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
 
     // <--[command]
     // @Name Yaml
-    // @Syntax yaml [create]/[load:<file> (fix_formatting)]/[loadtext:<text> (fix_formatting)]/[unload]/[savefile:<file>]/[copykey:<source key> <target key> (to_id:<name>)]/[set <key>([<#>])(:<action>):<value>] [id:<name>]
+    // @Syntax yaml [create]/[load:<file>]/[loadtext:<text> (fix_formatting)]/[unload]/[savefile:<file>]/[copykey:<source key> <target key> (to_id:<name>)]/[set <key>([<#>])(:<action>):<value>] [id:<name>]
     // @Required 2
     // @Short Edits a YAML configuration file.
     // @Group file
@@ -38,9 +40,6 @@ public class YamlCommand extends AbstractCommand implements Holdable {
     // This can be used for interacting with other plugins' configuration files.
     // It can also be used for storing your own script's data.
     // TODO: Document Command Details
-    // When loading a script, optionally add 'fix_formatting' to run the file through
-    // Denizen's built in script preparser to correct common YAML errors,
-    // such as tabs instead of spaces or comments inside braced blocks.
     // Use holdable syntax ("- ~yaml load:...") with load or savefile actions to avoid locking up the server during file IO.
     //
     // For loading and saving, the starting path is within 'plugins/Denizen'.
@@ -120,6 +119,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
 
         boolean isSet = false;
+        boolean isCopyKey = false;
 
         for (Argument arg : scriptEntry.getProcessedArgs()) {
             if (!scriptEntry.hasObject("action") &&
@@ -151,6 +151,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                 scriptEntry.addObject("action", new ElementTag("COPYKEY"));
                 scriptEntry.addObject("key", arg.asElement());
                 isSet = true;
+                isCopyKey = true;
             }
             else if (!scriptEntry.hasObject("action") &&
                     arg.matches("unload")) {
@@ -251,6 +252,10 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                 }
                 scriptEntry.addObject("value", new ElementTag(flagArgs[2]));
             }
+
+            else if (isCopyKey && !scriptEntry.hasObject("value")) {
+                scriptEntry.addObject("value", arg.asElement());
+            }
             else {
                 arg.reportUnhandled();
             }
@@ -298,8 +303,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                             + (value != null ? value.debug() : "")
                             + (split != null ? split.debug() : "")
                             + (rawText != null ? rawText.debug() : "")
-                            + (toId != null ? toId.debug() : "")
-                            + fixFormatting.debug());
+                            + (toId != null ? toId.debug() : ""));
 
         }
 
@@ -343,6 +347,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                             String str = ScriptHelper.convertStreamToString(fis);
                             if (fixFormatting.asBoolean()) {
                                 str = ScriptHelper.clearComments("", str, false);
+                                Deprecations.yamlFixFormatting.warn(scriptEntry);
                             }
                             runnableConfigs[0] = YamlConfiguration.load(str);
                             fis.close();
@@ -371,9 +376,6 @@ public class YamlCommand extends AbstractCommand implements Holdable {
 
             case LOADTEXT:
                 String str = rawText.asString();
-                if (fixFormatting.asBoolean()) {
-                    str = ScriptHelper.clearComments("", str, false);
-                }
                 YamlConfiguration config = YamlConfiguration.load(str);
                 if (yamls.containsKey(id)) {
                     yamls.remove(id);
@@ -412,7 +414,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                             return;
                         }
                         fileObj.getParentFile().mkdirs();
-                        String outp = yamls.get(id).saveToString();
+                        String outp = yamls.get(id).saveToString(false);
                         Runnable saveRunnable = new Runnable() {
                             @Override
                             public void run() {
@@ -462,6 +464,10 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                     }
                 }
                 YamlConfiguration sourceSection = yaml.getConfigurationSection(key.asString());
+                if (sourceSection == null) {
+                    Debug.echoError("Invalid YAML section key name '" + key.asString() + "'.");
+                    break;
+                }
                 YamlConfiguration newSection = copySection(sourceSection);
                 destYaml.set(value.toString(), newSection);
                 break;
@@ -819,7 +825,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // Converts the YAML container to raw YAML text.
         // -->
         if (attribute.startsWith("to_text")) {
-            event.setReplaced(new ElementTag(getYaml(id).saveToString()).getAttribute(attribute.fulfill(1)));
+            event.setReplaced(new ElementTag(getYaml(id).saveToString(false)).getAttribute(attribute.fulfill(1)));
             return;
         }
     }

@@ -1,6 +1,7 @@
 package com.denizenscript.denizencore.scripts.commands.queue;
 
 import com.denizenscript.denizencore.utilities.CoreUtilities;
+import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.objects.core.DurationTag;
@@ -29,23 +30,13 @@ public class Comparable {
     // comparables are compatible with all operators. See <@link language comparable> for more information.
     //
     // Available Operators include:
-    // EQUALS (==), MATCHES, OR_MORE (>=), OR_LESS (<=), MORE (>), LESS (<), CONTAINS, and IS_EMPTY.
+    // EQUALS (==), OR_MORE (>=), OR_LESS (<=), MORE (>), and LESS (<).
     //
     // Operators which have a symbol alternative (as marked by parenthesis) can be referred to by either
     // their name or symbol. Using a '!' in front of the operator will also reverse logic, effectively
     // turning 'EQUALS' into 'DOES NOT EQUAL', for example.
     //
     // == <= >= > < all compare arguments as text or numbers.
-    //
-    // CONTAINS checks whether a list contains an element, or an element contains another element.
-    //
-    // IS_EMPTY checks whether a list is empty. (This exists for back-support).
-    //
-    // MATCHES checks whether the first element matches a given type.
-    // For example: "if 1 matches number" or "if p@bob matches player".
-    // Match types: location, material, materiallist, script, entity, spawnedentity, entitytype,
-    // npc, player, offlineplayer, onlineplayer, item, pose, duration, cuboid, decimal,
-    // number, even number, odd number, boolean.
     //
     // Note: When using an operator in a replaceable tag (such as <ElementTag.is[...].than[...]>),
     // keep in mind that < and >, and even >= and <= must be either escaped, or referred to by name.
@@ -55,20 +46,21 @@ public class Comparable {
     // contains no replaceable tags.
     //
     // -->
-    public static enum Operator {
+
+    public enum Operator {
         EQUALS, MATCHES, OR_MORE, OR_LESS, MORE,
         LESS, CONTAINS, IS_EMPTY
     }
 
     public static final Operator[] OperatorValues = Operator.values();
 
-    public static enum Bridge {
+    public enum Bridge {
         OR, AND, FIRST, THEN, ELSE
     }
 
     public static final Bridge[] BridgeValues = Bridge.values();
 
-    public static enum Logic {
+    public enum Logic {
         REGULAR, NEGATIVE
     }
 
@@ -326,6 +318,7 @@ public class Comparable {
         switch (operator) {
             // For checking if a FLAG is empty.
             case IS_EMPTY:
+                Deprecations.oldMatchesOperator.warn();
                 outcome = comparable.length() == 0;
                 break;
 
@@ -336,6 +329,7 @@ public class Comparable {
 
             // For checking if the comparable contains comparedto
             case CONTAINS:
+                Deprecations.oldMatchesOperator.warn();
                 outcome = CoreUtilities.toLowerCase(comparable).contains(CoreUtilities.toLowerCase(comparedto));
                 break;
 
@@ -351,6 +345,7 @@ public class Comparable {
             // Check if the string comparable MATCHES a specific argument type,
             // as specified by comparedto
             case MATCHES:
+                Deprecations.oldMatchesOperator.warn();
                 comparedto = comparedto.replace("_", "");
 
                 if (comparedto.equalsIgnoreCase("script")) {

@@ -1,5 +1,6 @@
 package com.denizenscript.denizencore.utilities;
 
+import com.denizenscript.denizencore.utilities.debugging.FutureWarning;
 import com.denizenscript.denizencore.utilities.debugging.SlowWarning;
 import com.denizenscript.denizencore.utilities.debugging.Warning;
 
@@ -21,16 +22,16 @@ public class Deprecations {
     // Note: context was most often used, and needs to remain longer than the others.
     public static Warning contextShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'context' instead of 'c' as a root tag.");
     public static Warning entryShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'entry' instead of 'e' as a root tag.");
-    public static Warning defShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'def' instead of 'd' as a root tag.");
-    public static Warning procShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'proc' instead of 'pr' as a root tag.");
-    public static Warning queueShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'queue' instead of 'q' as a root tag.");
-    public static Warning scriptShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'script' instead of 's' as a root tag.");
+    public static Warning defShorthand = new Warning("Short-named tags are hard to read. Please use 'def' instead of 'd' as a root tag.");
+    public static Warning procShorthand = new Warning("Short-named tags are hard to read. Please use 'proc' instead of 'pr' as a root tag.");
+    public static Warning queueShorthand = new Warning("Short-named tags are hard to read. Please use 'queue' instead of 'q' as a root tag.");
+    public static Warning scriptShorthand = new Warning("Short-named tags are hard to read. Please use 'script' instead of 's' as a root tag.");
     public static Warning ternShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'tern' instead of 't' as a root tag.");
-    public static Warning utilShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'util' instead of 'u' as a root tag.");
+    public static Warning utilShorthand = new Warning("Short-named tags are hard to read. Please use 'util' instead of 'u' as a root tag.");
     // In Bukkit impl:
-    public static Warning locationShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'location' instead of 'l' as a root tag.");
+    public static Warning locationShorthand = new Warning("Short-named tags are hard to read. Please use 'location' instead of 'l' as a root tag.");
     public static Warning playerShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'player' instead of 'pl' as a root tag.");
-    public static Warning serverShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'server' instead of 'svr' as a root tag.");
+    public static Warning serverShorthand = new Warning("Short-named tags are hard to read. Please use 'server' instead of 'svr' as a root tag.");
     // ==================== End tag shorthands ====================
 
     // In Bukkit impl, Added on 2019/02/06
@@ -38,7 +39,7 @@ public class Deprecations {
 
     // In Bukkit impl, Added on 2019/03/08
     // Prime candidate for functionality removal - has been unsupported for a LONG time.
-    public static Warning boundWarning = new SlowWarning("Item script 'bound' functionality has never been reliable and should not be used. Consider replicating the concept with world events.");
+    public static Warning boundWarning = new Warning("Item script 'bound' functionality has never been reliable and should not be used. Consider replicating the concept with world events.");
 
     // In Bukkit impl, Added on 2019/07/07
     public static Warning mathTagBase = new Warning("'math:' tags have been non-recommended for years. Please use modern element math tags like 'element.add[...]', etc.");
@@ -55,9 +56,34 @@ public class Deprecations {
     // In Bukkit impl, Added on 2019/08/19
     public static Warning pointlessTextTags = new SlowWarning("Several text tags like '&dot' or '&cm' are pointless (there's no reason you can't just directly write them in). Please replace them with the actual intended text.");
 
+    // Added on 2019/08/27
+    // Prime candidate for functionality removal - hasn't been useful for several years.
+    public static Warning yamlFixFormatting = new SlowWarning("YAML command 'fix_formatting' argument is deprecated: this should never be used.");
+
+    // Added on 2019/09/13
+    // Bad candidate for functionality removal - used to be commonly used
+    public static Warning elementAsInTag = new SlowWarning("'element.as_int' tag is deprecated: use '.round', '.round_down', '.round_up', or '.truncate'.");
+
+    // In Bukkit impl, Added on 2019/09/18, but was deprecated earlier.
+    public static Warning worldContext = new SlowWarning("'context.world' in events containing a location or chunk context is deprecated: use 'context.location.world' or similar to get the world value.");
+    public static Warning entityBreaksHangingEventContext = new SlowWarning("'context.entity' in event 'on player breaks hanging' is deprecated: use 'context.breaker'.");
+    public static Warning hangingBreaksEventContext = new SlowWarning("'context.location' in event 'on hanging breaks' is deprecated: use 'context.hanging.location'.");
+    public static Warning playerRightClicksEntityContext = new SlowWarning("'context.location' in event 'on player right clicks entity' is deprecated: use 'context.entity.location'.");
+    public static Warning blockDispensesItemDetermination = new SlowWarning("Multiplier double determination for 'on block dispenses item' is deprecated: use 'context.velocity.mul[#]'.");
+    public static Warning serverRedirectLogging = new SlowWarning("server mechanism redirect_logging is deprecated: use the system mechanism by the same name.");
+
+    // In Bukkit impl, Added on 2019/09/25, but was deprecated earlier.
+    public static Warning qtyTags = new SlowWarning("'qty' in a tag is deprecated: use 'quantity'.");
+    public static Warning playerStepTag = new SlowWarning("'player.current_step[script]' tag is deprecated: use 'script.step[player]'.");
+    public static Warning playerGamemodeTag = new SlowWarning("player.gamemode.id tag is deprecated: IDs are no longer in use. Use the player.gamemode (named) tag.");
+
+    // In Bukkit impl, Added on 2019/09/25.
+    // Prime candidate for functionality removal - tags were only recently added, and were always jank.
+    public static Warning bookItemRawTags = new SlowWarning("Raw text tags for books were a placeholder. The normal (non-raw) tags now contain all needed data.");
+
     // ==================== SPECIAL deprecations: Minecraft version ====================
 
-    // To be removed when Minecraft 1.12.2 is no longer supported by the Bukkit impl:
+    // In Bukit impl, To be removed when Minecraft 1.12.2 is no longer supported by the Bukkit impl:
     public static Warning materialIds = new Warning("Material ID and data magic number support is deprecated and WILL be removed in a future release.");
     public static Warning materialIdsSuggestProperties = new Warning("Material ID and data magic number support is deprecated and WILL be removed in a future release. Use relevant properties instead.");
     public static Warning materialIdsSuggestNames = new Warning("Material ID and data magic number support is deprecated and WILL be removed in a future release. Use material names instead.");
@@ -67,5 +93,31 @@ public class Deprecations {
     // ==================== FUTURE deprecations ====================
 
     // In Bukkit impl, Relevant as of 2019/07/13, deprecate officially by 2020.
-    public static Warning oldParseTag = new SlowWarning("'parse:' tags are deprecated. Please use '.parsed' element tags instead.");
+    public static Warning oldParseTag = new FutureWarning("'parse:' tags are deprecated. Please use '.parsed' element tags instead.");
+
+    // In Bukkit impl, Relevant as of 2019/09/09, deprecate officially by 2020.
+    public static Warning oldNPCNavigator = new FutureWarning("'npc.navigator.*' tags are deprecated. Just remove the '.navigator' part, they're the same after that.");
+
+    // Relevant as of 2019/09/13, deprecate officially by 2020.
+    public static Warning oldMatchesOperator = new FutureWarning("'matches', 'is_empty', and 'contains' operators are deprecated. Use the logically equivalent tags instead.");
+
+    // In Bukkit impl, Relevant as of 2019/09/24, deprecate officially by 2020.
+    public static Warning oldRecipeScript = new FutureWarning("Item script single-recipe format is outdated. Use the modern 'recipes' list key (see meta docs).");
+
+    // In Bukkit impl, Relevant as of 2019/09/25, deprecate officially by 2021.
+    private static String pointlessSubtagPrefix = "Most pointless sub-tags are deprecated in favor of explicit unique tags. ";
+    public static Warning npcNicknameTag = new FutureWarning(pointlessSubtagPrefix + "npc.name.nickname is now just npc.nickname.");
+    public static Warning npcPreviousLocationTag = new FutureWarning(pointlessSubtagPrefix + "npc.location.previous_location is now just npc.previous_location.");
+    public static Warning npcAnchorListTag = new FutureWarning(pointlessSubtagPrefix + "npc.anchor.list is now just npc.list_anchors.");
+    public static Warning playerMoneyFormatTag = new FutureWarning(pointlessSubtagPrefix + "player.money.format is now just player.formatted_money.");
+    public static Warning playerFoodLevelFormatTag = new FutureWarning(pointlessSubtagPrefix + "player.food_level.format is now just player.formatted_food_level.");
+    public static Warning playerItemInHandSlotTag = new FutureWarning(pointlessSubtagPrefix + "player.item_in_hand_slot is now just player.held_item_slot.");
+    public static Warning playerBanInfoTags = new FutureWarning(pointlessSubtagPrefix + "player.ban_info.* tags are now just player.ban_*.");
+    public static Warning playerNameTags = new FutureWarning(pointlessSubtagPrefix + "player.name.* tags are now just player.*_name.");
+    public static Warning playerSidebarTags = new FutureWarning(pointlessSubtagPrefix + "player.sidebar.* tags are now just player.sidebar_*.");
+    public static Warning playerAttackCooldownTags = new FutureWarning(pointlessSubtagPrefix + "player.attack_cooldown.* tags are now just player.attack_cooldown_*.");
+    public static Warning playerXpTags = new FutureWarning(pointlessSubtagPrefix + "player.xp.* tags are now just player.xp_*.");
+    public static Warning entityHealthTags = new FutureWarning(pointlessSubtagPrefix + "entity.health.* tags are now just entity.health_*.");
+    public static Warning entityMaxOxygenTag = new FutureWarning(pointlessSubtagPrefix + "entity.oxygen.max is now just entity.max_oxygen.");
+    public static Warning itemBookTags = new FutureWarning(pointlessSubtagPrefix + "item.book.* tags are now just item.book_*.");
 }

@@ -5,16 +5,13 @@ import com.denizenscript.denizencore.scripts.ScriptBuilder;
 import com.denizenscript.denizencore.scripts.ScriptRegistry;
 import com.denizenscript.denizencore.scripts.containers.ScriptContainer;
 import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
+import com.denizenscript.denizencore.tags.*;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.YamlConfiguration;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.DenizenCore;
-import com.denizenscript.denizencore.tags.Attribute;
-import com.denizenscript.denizencore.tags.TagContext;
-import com.denizenscript.denizencore.tags.TagManager;
 import org.json.JSONObject;
 
-import java.util.HashMap;
 import java.util.List;
 
 public class ScriptTag implements ObjectTag, Adjustable {
@@ -269,10 +266,10 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // 'world'.
         // -->
 
-        registerTag("container_type", new TagRunnable() {
+        registerTag("container_type", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                return new ElementTag(((ScriptTag) object).container.getContainerType()).getAttribute(attribute.fulfill(1));
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                return new ElementTag(object.container.getContainerType());
             }
         });
 
@@ -283,10 +280,10 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Returns the name of the script container.
         // -->
 
-        registerTag("name", new TagRunnable() {
+        registerTag("name", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                return new ElementTag(((ScriptTag) object).name).getAttribute(attribute.fulfill(1));
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                return new ElementTag(object.name);
             }
         });
 
@@ -297,11 +294,10 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Returns the filename that contains the script, relative to the denizen/ folder.
         // -->
 
-        registerTag("relative_filename", new TagRunnable() {
+        registerTag("relative_filename", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                return new ElementTag(((ScriptTag) object).container.getRelativeFileName())
-                        .getAttribute(attribute.fulfill(1));
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                return new ElementTag(object.container.getRelativeFileName());
             }
         });
 
@@ -312,10 +308,10 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Returns the absolute filename that contains the script.
         // -->
 
-        registerTag("filename", new TagRunnable() {
+        registerTag("filename", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                return new ElementTag(((ScriptTag) object).container.getFileName().replace("\\", "/")).getAttribute(attribute.fulfill(1));
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                return new ElementTag(object.container.getFileName().replace("\\", "/"));
             }
         });
 
@@ -326,10 +322,10 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Returns the originally cased script name.
         // -->
 
-        registerTag("original_name", new TagRunnable() {
+        registerTag("original_name", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                return new ElementTag(((ScriptTag) object).container.getOriginalName()).getAttribute(attribute.fulfill(1));
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                return new ElementTag(object.container.getOriginalName());
             }
         });
 
@@ -346,14 +342,14 @@ public class ScriptTag implements ObjectTag, Adjustable {
         //     myconstant: myvalue
         // -->
 
-        registerTag("constant", new TagRunnable() {
+        registerTag("constant", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
                 if (!attribute.hasContext(1)) {
                     Debug.echoError("The tag ScriptTag.constant[...] must have a value.");
                     return null;
                 }
-                YamlConfiguration section = ((ScriptTag) object).getContainer().getConfigurationSection("default constants");
+                YamlConfiguration section = object.getContainer().getConfigurationSection("default constants");
                 if (section == null) {
                     return null;
                 }
@@ -371,13 +367,12 @@ public class ScriptTag implements ObjectTag, Adjustable {
                         // TODO
                         list.add(TagManager.tag(each.toString(), DenizenCore.getImplementation().getTagContext(attribute.getScriptEntry())));
                     }
-                    return list.getAttribute(attribute.fulfill(1));
+                    return list;
 
                 }
                 // TODO
                 else {
-                    return new ElementTag(TagManager.tag(obj.toString(), DenizenCore.getImplementation().getTagContext(attribute.getScriptEntry())))
-                            .getAttribute(attribute.fulfill(1));
+                    return new ElementTag(TagManager.tag(obj.toString(), DenizenCore.getImplementation().getTagContext(attribute.getScriptEntry())));
                 }
             }
         });
@@ -389,23 +384,23 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Returns the value of the script's YAML as either an ElementTag or ListTag.
         // -->
 
-        registerTag("yaml_key", new TagRunnable() {
+        registerTag("yaml_key", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
                 if (!attribute.hasContext(1)) {
                     Debug.echoError("The tag ScriptTag.constant[...] must have a value.");
                     return null;
                 }
-                ScriptTag scr = (ScriptTag) object;
+                ScriptTag scr = object;
                 ScriptContainer container = scr.getContainer();
                 if (container == null) {
                     Debug.echoError("Missing script container?!");
-                    return new ElementTag(scr.identify()).getAttribute(attribute);
+                    return null;
                 }
                 YamlConfiguration section = container.getConfigurationSection("");
                 if (section == null) {
                     Debug.echoError("Missing YAML section?!");
-                    return new ElementTag(scr.identify()).getAttribute(attribute);
+                    return null;
                 }
                 Object obj = section.get(attribute.getContext(1).toUpperCase());
                 if (obj == null) {
@@ -420,12 +415,11 @@ public class ScriptTag implements ObjectTag, Adjustable {
                         }
                         list.add(ScriptBuilder.stripLinePrefix(each.toString()));
                     }
-                    return list.getAttribute(attribute.fulfill(1));
+                    return list;
 
                 }
                 else {
-                    return new ElementTag(obj.toString())
-                            .getAttribute(attribute.fulfill(1));
+                    return new ElementTag(obj.toString());
                 }
             }
         });
@@ -437,16 +431,15 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Returns a list of all keys within a script.
         // -->
 
-        registerTag("list_keys", new TagRunnable() {
+        registerTag("list_keys", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                YamlConfiguration conf = ((ScriptTag) object).getContainer().getConfigurationSection(attribute.hasContext(1) ?
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                YamlConfiguration conf = object.getContainer().getConfigurationSection(attribute.hasContext(1) ?
                         attribute.getContext(1) : "");
                 if (conf == null) {
                     return null;
                 }
-                return new ListTag(conf.getKeys(false))
-                        .getAttribute(attribute.fulfill(1));
+                return new ListTag(conf.getKeys(false));
             }
         });
 
@@ -457,16 +450,15 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Returns a list of all keys within a script, searching recursively.
         // -->
 
-        registerTag("list_deep_keys", new TagRunnable() {
+        registerTag("list_deep_keys", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                YamlConfiguration conf = ((ScriptTag) object).getContainer().getConfigurationSection(attribute.hasContext(1) ?
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                YamlConfiguration conf = object.getContainer().getConfigurationSection(attribute.hasContext(1) ?
                         attribute.getContext(1) : "");
                 if (conf == null) {
                     return null;
                 }
-                return new ListTag(conf.getKeys(true))
-                        .getAttribute(attribute.fulfill(1));
+                return new ListTag(conf.getKeys(true));
             }
         });
 
@@ -478,12 +470,12 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Best used with 'yaml data' type scripts.
         // -->
 
-        registerTag("to_json", new TagRunnable() {
+        registerTag("to_json", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                JSONObject jsobj = new JSONObject(((ScriptTag) object).container.getConfigurationSection("").getMap());
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                JSONObject jsobj = new JSONObject(YamlConfiguration.reverse(object.container.getContents().getMap(), true));
                 jsobj.remove("TYPE");
-                return new ElementTag(jsobj.toString()).getAttribute(attribute.fulfill(1));
+                return new ElementTag(jsobj.toString());
             }
         });
 
@@ -495,13 +487,13 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Best used with 'yaml data' type scripts.
         // -->
 
-        registerTag("to_text", new TagRunnable() {
+        registerTag("to_text", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
                 YamlConfiguration config = new YamlConfiguration();
-                config.addAll(((ScriptTag) object).getContainer().getContents().getMap());
+                config.addAll(object.getContainer().getContents().getMap());
                 config.set("type", null);
-                return new ElementTag(config.saveToString()).getAttribute(attribute.fulfill(1));
+                return new ElementTag(config.saveToString(true));
             }
         });
 
@@ -513,10 +505,10 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // type of object that is fulfilling this attribute.
         // -->
 
-        registerTag("type", new TagRunnable() {
+        registerTag("type", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                return new ElementTag("Script").getAttribute(attribute.fulfill(1));
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                return new ElementTag("Script");
             }
         });
 
@@ -527,52 +519,30 @@ public class ScriptTag implements ObjectTag, Adjustable {
         // Returns all queues which are running for this script.
         // -->
 
-        registerTag("list_queues", new TagRunnable() {
+        registerTag("list_queues", new TagRunnable.ObjectForm<ScriptTag>() {
             @Override
-            public String run(Attribute attribute, ObjectTag object) {
-                ScriptTag script = (ScriptTag) object;
+            public ObjectTag run(Attribute attribute, ScriptTag object) {
+                ScriptTag script = object;
                 ListTag queues = new ListTag();
                 for (ScriptQueue queue : ScriptQueue.getQueues()) {
                     if (queue.script != null && queue.script.getName().equals(script.getName())) {
                         queues.addObject(new QueueTag(queue));
                     }
                 }
-                return queues.getAttribute(attribute.fulfill(1));
+                return queues;
             }
         });
     }
 
-    public static HashMap<String, TagRunnable> registeredTags = new HashMap<>();
+    public static ObjectTagProcessor<ScriptTag> tagProcessor = new ObjectTagProcessor<>();
 
-    public static void registerTag(String name, TagRunnable runnable) {
-        if (runnable.name == null) {
-            runnable.name = name;
-        }
-        registeredTags.put(name, runnable);
+    public static void registerTag(String name, TagRunnable.ObjectForm<ScriptTag> runnable) {
+        tagProcessor.registerTag(name, runnable);
     }
 
     @Override
-    public String getAttribute(Attribute attribute) {
-        if (attribute == null) {
-            return "null";
-        }
-        // TODO: Scrap getAttribute, make this functionality a core system
-        String attrLow = CoreUtilities.toLowerCase(attribute.getAttributeWithoutContext(1));
-        TagRunnable tr = registeredTags.get(attrLow);
-        if (tr != null) {
-            if (!tr.name.equals(attrLow)) {
-                Debug.echoError(attribute.getScriptEntry() != null ? attribute.getScriptEntry().getResidingQueue() : null,
-                        "Using deprecated form of tag '" + tr.name + "': '" + attrLow + "'.");
-            }
-            return tr.run(attribute, this);
-        }
-
-        String returned = CoreUtilities.autoPropertyTag(this, attribute);
-        if (returned != null) {
-            return returned;
-        }
-
-        return new ElementTag(identify()).getAttribute(attribute);
+    public ObjectTag getObjectAttribute(Attribute attribute) {
+        return tagProcessor.getObjectAttribute(this, attribute);
     }
 
     @Override

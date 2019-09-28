@@ -106,11 +106,6 @@ public interface DenizenImplementation {
     /**
      * Temporary.
      */
-    void buildCoreContainers(YamlConfiguration yamlScripts);
-
-    /**
-     * Temporary.
-     */
     List<YamlConfiguration> getOutsideScripts();
 
     TagContext getTagContextFor(ScriptEntry entry, boolean instant);
@@ -136,8 +131,6 @@ public interface DenizenImplementation {
     String cleanseLogString(String str);
 
     boolean matchesType(String comparable, String comparedTo);
-
-    Thread getMainThread();
 
     boolean allowedToWebget();
 

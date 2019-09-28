@@ -1,17 +1,16 @@
-package com.denizenscript.denizencore.objects;
+package com.denizenscript.denizencore.tags;
 
+import com.denizenscript.denizencore.objects.ObjectTag;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
-import com.denizenscript.denizencore.tags.Attribute;
-import com.denizenscript.denizencore.tags.ReplaceableTagEvent;
 
 public abstract class TagRunnable implements Cloneable {
 
-    public static abstract class ObjectForm implements Cloneable {
+    public static abstract class ObjectForm<T extends ObjectTag> implements Cloneable {
 
         @Override
-        public ObjectForm clone() {
+        public ObjectForm<T> clone() {
             try {
-                return (ObjectForm) super.clone();
+                return (ObjectForm<T>) super.clone();
             }
             catch (Exception ex) {
                 Debug.echoError(ex);
@@ -21,7 +20,7 @@ public abstract class TagRunnable implements Cloneable {
 
         public String name = null;
 
-        public abstract ObjectTag run(Attribute attribute, ObjectTag object);
+        public abstract ObjectTag run(Attribute attribute, T object);
     }
 
     public static abstract class RootForm implements Cloneable {

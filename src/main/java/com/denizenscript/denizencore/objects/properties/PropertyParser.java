@@ -27,11 +27,13 @@ public class PropertyParser {
         public Map<String, PropertyGetter> propertiesByTag = new HashMap<>();
 
         public Map<String, PropertyGetter> propertiesByMechanism = new HashMap<>();
+
+        public Map<String, String> propertyNamesByTag = new HashMap<>();
     }
 
     public static Map<Class<? extends ObjectTag>, ClassPropertiesInfo> propertiesByClass = new HashMap<>();
 
-    public static void registerPropertyGetter(PropertyGetter getter, Class<? extends ObjectTag> object, String[] tags, String[] mechs) {
+    public static void registerPropertyGetter(PropertyGetter getter, Class<? extends ObjectTag> object, String[] tags, String[] mechs, Class property) {
         ClassPropertiesInfo propInfo = propertiesByClass.get(object);
         if (propInfo == null) {
             propInfo = new ClassPropertiesInfo();
@@ -39,8 +41,10 @@ public class PropertyParser {
         }
         propInfo.allProperties.add(getter);
         if (tags != null) {
+            String propName = property.getSimpleName();
             for (String tag : tags) {
                 propInfo.propertiesByTag.put(tag, getter);
+                propInfo.propertyNamesByTag.put(tag, propName);
             }
         }
         else {
@@ -73,7 +77,7 @@ public class PropertyParser {
     }
 
     public static void registerProperty(final Class property, Class<? extends ObjectTag> object, PropertyGetter getter) {
-        registerPropertyGetter(getter, object, getStringField(property, "handledTags"), getStringField(property, "handledMechs"));
+        registerPropertyGetter(getter, object, getStringField(property, "handledTags"), getStringField(property, "handledMechs"), property);
     }
 
     public static void registerProperty(final Class property, Class<? extends ObjectTag> object) {
@@ -94,7 +98,7 @@ public class PropertyParser {
     }
 
     public static String getPropertiesString(ObjectTag object) {
-        ClassPropertiesInfo properties = propertiesByClass.get(object.getdObjectClass());
+        ClassPropertiesInfo properties = propertiesByClass.get(object.getObjectTagClass());
         if (properties == null) {
             return "";
         }
@@ -120,7 +124,7 @@ public class PropertyParser {
     public static List<Property> empty = new ArrayList<>();
 
     public static List<Property> getProperties(ObjectTag object, String attribLow) {
-        ClassPropertiesInfo properties = propertiesByClass.get(object.getdObjectClass());
+        ClassPropertiesInfo properties = propertiesByClass.get(object.getObjectTagClass());
         if (properties == null) {
             return empty;
         }
@@ -138,7 +142,7 @@ public class PropertyParser {
     }
 
     public static List<Property> getProperties(ObjectTag object) {
-        ClassPropertiesInfo properties = propertiesByClass.get(object.getdObjectClass());
+        ClassPropertiesInfo properties = propertiesByClass.get(object.getObjectTagClass());
         if (properties == null) {
             return empty;
         }
