@@ -99,6 +99,7 @@
                         </goals>
                         <configuration>
                             <minimizeJar>false</minimizeJar>
+                            <finalName>DenizenCore-${project.version}-b${BUILD_NUMBER}-Unizen</finalName>
                             <artifactSet>
                                 <includes>
                                     <include>com.freneticllc.freneticutilities:freneticdatasyntax</include>
