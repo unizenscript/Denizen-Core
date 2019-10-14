@@ -13,7 +13,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <BUILD_NUMBER>Unknown</BUILD_NUMBER>
+        <CORE_VERSION>1.60</CORE_VERSION>
+        <BUILD_NUMBER>UNKNOWN</BUILD_NUMBER>
     </properties>
 
     <!-- Repositories -->
@@ -57,9 +58,9 @@
         <url>https://ci.citizensnpcs.co</url>
     </ciManagement -->
     <scm>
-        <connection>scm:git:git://github.com/DenizenScript/Denizen-Core.git</connection>
-        <developerConnection>scm:git:git:@github.com:DenizenScript/Denizen-Core.git</developerConnection>
-        <url>https://github.com/DenizenScript/Denizen-Core/tree/master/</url>
+        <connection>scm:git:git://github.com/unizenscript/Denizen-Core.git</connection>
+        <developerConnection>scm:git:git:@github.com:unizenscript/Denizen-Core.git</developerConnection>
+        <url>https://github.com/unizenscript/Denizen-Core/tree/master/</url>
     </scm>
 
     <build>
@@ -99,7 +100,7 @@
                         </goals>
                         <configuration>
                             <minimizeJar>false</minimizeJar>
-                            <finalName>DenizenCore-${project.version}-b${BUILD_NUMBER}-Unizen</finalName>
+                            <finalName>UnizenCore-${CORE_VERSION}-b${BUILD_NUMBER}-SNAPSHOT</finalName>
                             <artifactSet>
                                 <includes>
                                     <include>com.freneticllc.freneticutilities:freneticdatasyntax</include>
