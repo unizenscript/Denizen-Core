@@ -20,46 +20,51 @@ public class RunCommand extends AbstractCommand implements Holdable {
     // @Name Run
     // @Syntax run [<script>/locally] (path:<name>) (def:<element>|...) (id:<name>) (speed:<value>/instantly) (delay:<value>)
     // @Required 1
-    // @Short Runs a script in a new ScriptQueue.
+    // @Short Runs a script in a new queue.
     // @Group queue
     //
     // @Description
-    // Runs a script in a new ScriptQueue.
+    // Runs a script in a new queue.
     //
-    // You can specify either a script object to run, or "locally" to use a path within the same script.
+    // You can specify either a script to run, or "locally" to use a path within the same script.
     //
-    // Optionally, use the "path:" argument to choose a specific sub-path within a script (works well with the "locally" argument).
+    // Optionally, use the "path:" argument to choose a specific sub-path within the target script.
     //
-    // Optionally, use the "def:" argument to specify definition values to pass to the script (named via the "definitions:" script key).
+    // Optionally, use the "def:" argument to specify definition values to pass to the target script.
+    // These passed values can be named with the "definitions:" key in the target script.
     //
-    // Optionally, use the "speed:" argument to specify the queue command-speed to run the target script at,
-    // or use the "instantly" argument to use an instant speed (no command delay applied).
-    // If neither argument is specified, the default queue speed applies (normally instant, refer to the config file).
-    // Generally, prefer to set the "speed:" script key on the script to be ran, rather than using this argument.
+    // Optionally, use the "speed:" argument to set the queue speed, which is the delay between commands.
+    // Use the "instantly" argument to make the queue speed instant, which makes each command run without a delay.
+    // If neither argument is specified, the default queue speed in the Denizen config applies.
+    // The "speed:" key in the target script can be used to substitute this argument.
     //
     // Optionally, use the "delay:" argument to specify a delay time before the script starts running.
     //
     // Optionally, specify the "id:" argument to choose a custom queue ID to be used.
-    // If none is specified, a randomly generated one will be used. Generally, don't use this argument.
+    // If none is specified, a randomly generated one will be used.
     //
     // @Tags
     // <entry[saveName].created_queue> returns the queue that was started by the run command.
     //
     // @Usage
-    // Use to run a task script named 'MyTask'.
-    // - run MyTask
+    // Use to run a task script named "my_task".
+    // - run my_task
     //
     // @Usage
-    // Use to run a task script named 'MyTask' that isn't normally instant, instantly.
-    // - run MyTask instantly
+    // Use to run a task script named "my_task" instantly.
+    // - run my_task instantly
     //
     // @Usage
-    // Use to run a local subscript named 'alt_path'.
+    // Use to run a local subscript named "alt_path".
     // - run locally path:alt_path
     //
     // @Usage
-    // Use to run 'MyTask' and pass 3 definitions to it.
-    // - run MyTask def:A|Second_Def|Taco
+    // An alternate way to run a path within the script "my_task".
+    // - run my_task.alt_path
+    //
+    // @Usage
+    // Use to run "my_task" and pass 3 definitions to it.
+    // - run my_task def:A|Second_Def|Taco
     //
     // -->
 

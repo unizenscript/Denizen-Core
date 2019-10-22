@@ -18,16 +18,12 @@ public class RandomCommand extends BracedCommand {
     // @Name Random
     // @Syntax random [<commands>]
     // @Required 0
-    // @Short Selects a random choice from the following script commands.
+    // @Short Selects a random command to execute from the following script commands.
     // @Group queue
     //
     // @Description
-    // The random command picks one of the following script command and skips all the other script commands that are in its section.
-    // Commands like "repeat 1" or "if true" can be used to group together a sublisting of commands to execute together
-    // (as a way to get around the 1-command limit).
-    //
-    // If wanting to choose a random long set of commands,
-    // consider instead using <@link command choose> with <@link tag util.random.int.to>
+    // The random command picks one of the following script command to run, and ignores all of the other commands.
+    // Commands like "repeat 1" or "if true" can be used to group multiple commands to execute together.
     //
     // @Tags
     // <entry[saveName].possibilities> returns an ElementTag of the possibility count.
