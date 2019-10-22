@@ -32,6 +32,7 @@ public class Deprecations {
     public static Warning locationShorthand = new Warning("Short-named tags are hard to read. Please use 'location' instead of 'l' as a root tag.");
     public static Warning playerShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'player' instead of 'pl' as a root tag.");
     public static Warning serverShorthand = new Warning("Short-named tags are hard to read. Please use 'server' instead of 'svr' as a root tag.");
+    public static Warning schematicShorthand = new Warning("Short-named tags are hard to read. Please use 'schematic' instead of 'schem' as a root tag.");
     // ==================== End tag shorthands ====================
 
     // In Bukkit impl, Added on 2019/02/06
@@ -81,6 +82,13 @@ public class Deprecations {
     // Prime candidate for functionality removal - tags were only recently added, and were always jank.
     public static Warning bookItemRawTags = new SlowWarning("Raw text tags for books were a placeholder. The normal (non-raw) tags now contain all needed data.");
 
+    // In Bukkit impl, Added on 2019/10/13
+    // This is just a message, relevant functionality already removed. Remove the script container registration after a few releases.
+    public static Warning versionScripts = new SlowWarning("Version script containers are deprecated due to the old script repo no longer being active.");
+
+    // Added on 2019/10/13
+    public static Warning scriptReloadEventNoUnderscore = new SlowWarning("In the 'on script reload' event, 'had_error' should be used instead of 'haderror'.");
+
     // ==================== SPECIAL deprecations: Minecraft version ====================
 
     // In Bukit impl, To be removed when Minecraft 1.12.2 is no longer supported by the Bukkit impl:
@@ -94,6 +102,9 @@ public class Deprecations {
 
     // In Bukkit impl, Relevant as of 2019/07/13, deprecate officially by 2020.
     public static Warning oldParseTag = new FutureWarning("'parse:' tags are deprecated. Please use '.parsed' element tags instead.");
+
+    // Added on 2019/10/09, but was changed earlier, deprecate officially by 2020.
+    public static Warning oldTernTag = new FutureWarning("'tern[a]:b||c' tag style is deprecated. Please use 'tern[a].pass[b].fail[c]' tag style instead.");
 
     // In Bukkit impl, Relevant as of 2019/09/09, deprecate officially by 2020.
     public static Warning oldNPCNavigator = new FutureWarning("'npc.navigator.*' tags are deprecated. Just remove the '.navigator' part, they're the same after that.");
@@ -123,4 +134,10 @@ public class Deprecations {
 
     // In Bukkit impl, Added 2019/10/03, deprecate officially by 2021.
     public static Warning inAreaSwitchFormat = new FutureWarning("The old 'in <area>' in-line event format is deprecated, use the switch format for 'in:<area>'.");
+
+    // Added 2019/10/08, deprecate officially by 2021.
+    public static Warning ifCommandSingleLine = new FutureWarning("Single line if commands are deprecated. Please update them to modern format.");
+
+    // Added 2019/10/08, deprecate officially by 2022.
+    public static Warning oldBraceSyntax = new FutureWarning("The { braced } command format is deprecated. Please use the ':' colon syntax (refer to documentation).");
 }
