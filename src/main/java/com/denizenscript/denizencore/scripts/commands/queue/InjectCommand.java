@@ -17,7 +17,6 @@ public class InjectCommand extends AbstractCommand {
     // @Syntax inject (locally) [<script>] (path:<name>) (instantly)
     // @Required 1
     // @Short Runs a script in the current ScriptQueue.
-    // @Guide https://guide.denizenscript.com/guides/basics/run-options.html
     // @Group queue
     //
     // @Description

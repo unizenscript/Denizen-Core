@@ -22,7 +22,6 @@ public class IfCommand extends BracedCommand {
     // @Required 1
     // @Short Compares values, and runs a subset of commands if they match.
     // @Group queue
-    // @Guide https://guide.denizenscript.com/guides/basics/if-command.html
     //
     // @Description
     // Compares values, and runs a subset of commands if they match.

@@ -13,10 +13,9 @@ public class ElseCommand extends AbstractCommand {
     // @Required 0
     // @Short Helper command for usage with the if command.
     // @Group queue
-    // @Guide https://guide.denizenscript.com/guides/basics/if-command.html
     //
     // @Description
-    // A helper command for ':' syntax if commands.
+    // A helper command for the if command.
     // See IF command documentation.
     //
     // @Tags

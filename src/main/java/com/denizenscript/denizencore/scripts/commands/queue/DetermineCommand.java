@@ -17,7 +17,6 @@ public class DetermineCommand extends AbstractCommand {
     // @Required 1
     // @Short Sets the outcome of a world event.
     // @Group queue
-    // @Guide https://guide.denizenscript.com/guides/first-steps/world-script.html
     //
     // @Description
     // TODO: Document Command Details

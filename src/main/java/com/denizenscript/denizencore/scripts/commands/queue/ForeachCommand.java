@@ -18,7 +18,6 @@ public class ForeachCommand extends BracedCommand {
     // @Required 1
     // @Short Loops through a ListTag, running a set of commands for each item.
     // @Group queue
-    // @Guide https://guide.denizenscript.com/guides/basics/loops.html
     //
     // @Description
     // Loops through a ListTag of any type. For each item in the ListTag, the specified commands will be ran for
