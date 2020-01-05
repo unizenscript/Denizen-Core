@@ -1,4 +1,4 @@
-package com.denizenscript.denizencore.scripts.commands.queue;
+package com.denizenscript.denizencore.scripts.commands;
 
 import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.Deprecations;
@@ -11,15 +11,18 @@ import com.denizenscript.denizencore.objects.core.ScriptTag;
 
 public class Comparable {
 
-    // TODO: Expand upon this.
-    //
     // <--[language]
     // @name Comparable
     // @group Comparables
     // @description
-    // A Comparable is a method that the IF command and ElementTag ObjectTag uses to compare objects.
-    // (This lang is TODO! )
-    // See <@link language operator>
+    // A Comparable is a method that the If command, While command, and 'element.is[...].to[...]' tag uses to compare objects.
+    //
+    // These are usually written in the format "VALUE OPERATOR VALUE".
+    //
+    // For example, if you use ">=" as the operator, and "3" and "5" as the values, you'd write "3 >= 5",
+    // which would return false (as 3 is NOT greater-than-or-equal-to 5).
+    //
+    // For a list of valid operators and their usages, see <@link language operator>.
     // -->
 
     // <--[language]
@@ -44,6 +47,8 @@ public class Comparable {
     // but <player.health.is[<].than[10]> will produce undesired results. <>'s must be escaped or replaced since
     // they are normally notation for a replaceable tag. Escaping is not necessary when the argument
     // contains no replaceable tags.
+    //
+    // There are also special boolean operators (&&, ||, ...) documented at: <@link command if>
     //
     // -->
 
@@ -86,7 +91,7 @@ public class Comparable {
 
         // If a Number
         if (arg.length() > 0 && ArgumentHelper.matchesDouble(arg)) {
-            comparable = ArgumentHelper.getDoubleFrom(arg);
+            comparable = Double.parseDouble(arg);
         }
 
         // If a List<Object>
@@ -117,7 +122,7 @@ public class Comparable {
         // Comparable is a Number, return Double
         else if (comparable instanceof Double || comparable instanceof Long) {
             if (ArgumentHelper.matchesDouble(arg)) {
-                comparedto = ArgumentHelper.getDoubleFrom(arg);
+                comparedto = Double.parseDouble(arg);
             }
             else {
                 comparable = String.valueOf(comparable);
@@ -126,7 +131,7 @@ public class Comparable {
         }
 
         else if (comparable instanceof Boolean) {
-            comparedto = ArgumentHelper.getBooleanFrom(arg);
+            comparedto = arg.equalsIgnoreCase("true");
         }
 
         else if (comparable instanceof ListTag) {
@@ -245,14 +250,14 @@ public class Comparable {
                 for (String string : comparable) {
                     if (comparedto instanceof Long) {
                         if (ArgumentHelper.matchesInteger(string)
-                                && ArgumentHelper.getLongFrom(string) == (Long) comparedto) {
+                                && Long.parseLong(string) == (Long) comparedto) {
                             outcome = true;
                             break;
                         }
                     }
                     else if (comparedto instanceof Double) {
                         if (ArgumentHelper.matchesDouble(string) &&
-                                ArgumentHelper.getDoubleFrom(string) == (Double) comparedto) {
+                                Double.parseDouble(string) == (Double) comparedto) {
                             outcome = true;
                             break;
                         }
@@ -368,12 +373,12 @@ public class Comparable {
 
                 else if (comparedto.equalsIgnoreCase("even integer")
                         || comparedto.equalsIgnoreCase("even number")) {
-                    outcome = ArgumentHelper.matchesInteger(comparable) && (ArgumentHelper.getLongFrom(comparable) % 2) == 0;
+                    outcome = ArgumentHelper.matchesInteger(comparable) && (Long.parseLong(comparable) % 2) == 0;
                 }
 
                 else if (comparedto.equalsIgnoreCase("odd integer")
                         || comparedto.equalsIgnoreCase("odd number")) {
-                    outcome = ArgumentHelper.matchesInteger(comparable) && (ArgumentHelper.getLongFrom(comparable) % 2) == 1;
+                    outcome = ArgumentHelper.matchesInteger(comparable) && (Long.parseLong(comparable) % 2) == 1;
                 }
 
                 else if (comparedto.equalsIgnoreCase("boolean")) {

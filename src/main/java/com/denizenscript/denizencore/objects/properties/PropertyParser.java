@@ -1,10 +1,14 @@
 package com.denizenscript.denizencore.objects.properties;
 
+import com.denizenscript.denizencore.objects.ObjectFetcher;
+import com.denizenscript.denizencore.tags.Attribute;
+import com.denizenscript.denizencore.tags.ObjectTagProcessor;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.objects.ObjectTag;
 
 import java.lang.invoke.*;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.*;
 
 public class PropertyParser {
@@ -16,6 +20,7 @@ public class PropertyParser {
     }
 
     public static class ClassPropertiesInfo {
+
         public List<PropertyGetter> allProperties = new ArrayList<>();
 
         public List<PropertyGetter> propertiesAnyTags = new ArrayList<>();
@@ -31,9 +36,54 @@ public class PropertyParser {
         public Map<String, String> propertyNamesByTag = new HashMap<>();
     }
 
+    @FunctionalInterface
+    public interface PropertyTag<T extends Property> {
+        ObjectTag run(Attribute attribute, T prop);
+    }
+
     public static Map<Class<? extends ObjectTag>, ClassPropertiesInfo> propertiesByClass = new HashMap<>();
 
+    public static <P extends Property> void registerTag(String name, PropertyTag<P> runnable, String... variants) {
+        final PropertyParser.PropertyGetter getter = PropertyParser.currentlyRegisteringProperty;
+        final Class propertyClass = PropertyParser.currentlyRegisteringPropertyClass;
+        ObjectTagProcessor<?> tagProcessor = PropertyParser.currentlyRegisteringObjectType.tagProcessor;
+        tagProcessor.registerTag(name, (attribute, object) -> {
+            Property prop = getter.get(object);
+            if (prop == null) {
+                if (!attribute.hasAlternative()) {
+                    Debug.echoError("Property '" + propertyClass.getSimpleName() + "' does not describe the input object.");
+                }
+                return null;
+            }
+            return runnable.run(attribute, (P) prop);
+        }, variants);
+    }
+
+    public static Class currentlyRegisteringPropertyClass;
+
+    public static PropertyGetter currentlyRegisteringProperty;
+
+    public static ObjectFetcher.ObjectType currentlyRegisteringObjectType;
+
     public static void registerPropertyGetter(PropertyGetter getter, Class<? extends ObjectTag> object, String[] tags, String[] mechs, Class property) {
+        currentlyRegisteringPropertyClass = property;
+        currentlyRegisteringProperty = getter;
+        currentlyRegisteringObjectType = ObjectFetcher.objectsByClass.get(object);
+        boolean didRegisterTags = false;
+        try {
+            for (Method registerMethod : property.getDeclaredMethods()) {
+                if (registerMethod.getName().equals("registerTags") && registerMethod.getParameterCount() == 0) {
+                    registerMethod.invoke(null);
+                    didRegisterTags = true;
+                }
+            }
+        }
+        catch (Throwable ex) {
+            Debug.echoError(ex);
+        }
+        currentlyRegisteringProperty = null;
+        currentlyRegisteringObjectType = null;
+        currentlyRegisteringPropertyClass = null;
         ClassPropertiesInfo propInfo = propertiesByClass.get(object);
         if (propInfo == null) {
             propInfo = new ClassPropertiesInfo();
@@ -47,7 +97,7 @@ public class PropertyParser {
                 propInfo.propertyNamesByTag.put(tag, propName);
             }
         }
-        else {
+        else if (!didRegisterTags) {
             propInfo.propertiesAnyTags.add(getter);
         }
         if (mechs != null) {
@@ -68,7 +118,7 @@ public class PropertyParser {
             return (String[]) f.get(null);
         }
         catch (IllegalAccessException e) {
-            Debug.echoError("Invalid property field '" + fieldName + "' for property class '" + property.getSimpleName() + "': field is not a Set: " + e.getMessage() + "!");
+            Debug.echoError("Invalid property field '" + fieldName + "' for property class '" + property.getSimpleName() + "': field is not a String[]: " + e.getMessage() + "!");
         }
         catch (NoSuchFieldException e) {
             // Ignore this exception.

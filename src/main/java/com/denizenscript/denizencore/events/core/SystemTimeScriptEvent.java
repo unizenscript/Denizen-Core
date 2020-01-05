@@ -2,7 +2,6 @@ package com.denizenscript.denizencore.events.core;
 
 import com.denizenscript.denizencore.events.ScriptEvent;
 import com.denizenscript.denizencore.objects.core.ElementTag;
-import com.denizenscript.denizencore.objects.ArgumentHelper;
 import com.denizenscript.denizencore.objects.ObjectTag;
 import com.denizenscript.denizencore.scripts.ScriptEntryData;
 import com.denizenscript.denizencore.DenizenCore;
@@ -15,7 +14,7 @@ public class SystemTimeScriptEvent extends ScriptEvent {
     // @Events
     // system time [<HH:MM>/hourly/minutely/secondly]
     //
-    // @Switch every <count>
+    // @Switch every:<count> to only run the event every *count* times (like "on system time secondly every:5" for every 5 seconds).
     //
     // @Regex ^on system time (\d\d\:\d\d|hourly|minutely|secondly)$
     //
@@ -58,7 +57,7 @@ public class SystemTimeScriptEvent extends ScriptEvent {
     public boolean matches(ScriptPath path) {
         String time = path.rawEventArgAt(2);
         String countString = path.switches.get("every");
-        int count = countString == null ? 1 : ArgumentHelper.getIntegerFrom(countString);
+        int count = countString == null ? 1 : Integer.parseInt(countString);
         if (time.equals("secondly")) {
             return seconds % count == 0;
         }

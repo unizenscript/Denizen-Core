@@ -4,7 +4,6 @@ import com.denizenscript.denizencore.events.core.*;
 import com.denizenscript.denizencore.scripts.containers.core.WorldScriptContainer;
 import com.denizenscript.denizencore.scripts.queues.ContextSource;
 import com.denizenscript.denizencore.objects.core.ElementTag;
-import com.denizenscript.denizencore.objects.ArgumentHelper;
 import com.denizenscript.denizencore.objects.core.ListTag;
 import com.denizenscript.denizencore.objects.ObjectTag;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
@@ -39,6 +38,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     public static void registerCoreEvents() {
         registerScriptEvent(new ConsoleOutputScriptEvent());
         registerScriptEvent(new DeltaTimeScriptEvent());
+        registerScriptEvent(new PreScriptReloadScriptEvent());
         registerScriptEvent(new ReloadScriptsScriptEvent());
         registerScriptEvent(new SystemTimeScriptEvent());
         registerScriptEvent(new TickScriptEvent());
@@ -77,7 +77,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         public String[] eventArgs;
         public String[] eventArgsLower;
         public String[] rawEventArgs;
-        public int matches = 0;
+        public List<ScriptEvent> matches = new ArrayList<>();
 
         public String rawEventArgAt(int index) {
             return index < rawEventArgs.length ? rawEventArgs[index] : "";
@@ -109,6 +109,17 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         // This is both more efficient to process and more explicit in what's going on, however it is less
         // clear/readable to the average user, so it is not often used.
         // Some events may have switches for less-often specified data, and use the event line for other options.
+        //
+        // Most switches take input in the form of a simplified name or value.
+        // For example an "<entity>" input will usually accept the name of an entity type like "zombie",
+        // not a full entity UUID or other specific-entity identifier.
+        // An "<item>" input will expect a material name or item script name, not a fully detailed item description with property syntax.
+        // A "<cuboid>" input will expect the name of a notable cuboid, never a fully written out cuboid object.
+        //
+        // One of the most common switches across many Denizen events is "in:<area>".
+        // In these switches, 'area' is a world, notable cuboid, or notable ellipsoid.
+        // So for example you might have an event line like "on player breaks block in:space:"
+        // where space is the name of a world or of a notable cuboid.
         // -->
 
         public boolean checkSwitch(String key, String value) {
@@ -119,7 +130,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             return CoreUtilities.toLowerCase(pathValue).equals(value);
         }
 
-        public ScriptPath(ScriptContainer container, String event) {
+        public ScriptPath(ScriptContainer container, String event, String rawEventPath) {
             this.event = event;
             rawEventArgs = CoreUtilities.split(event, ' ').toArray(new String[0]);
             this.container = container;
@@ -138,6 +149,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             eventArgsLower = CoreUtilities.split(eventLower, ' ').toArray(new String[0]);
             switch_cancelled = switches.containsKey("cancelled") ? switches.get("cancelled").equalsIgnoreCase("true") : null;
             switch_ignoreCancelled = switches.containsKey("ignorecancelled") ? switches.get("ignorecancelled").equalsIgnoreCase("true") : null;
+            set = container.getSetFor("events." + rawEventPath);
         }
 
         @Override
@@ -147,7 +159,9 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     }
 
     public static void reload() {
-        Debug.log("Reloading script events...");
+        if (Debug.showLoading) {
+            Debug.log("Reloading script events...");
+        }
         for (ScriptContainer container : worldContainers) {
             if (!container.getContents().getString("enabled", "true").equalsIgnoreCase("true")) {
                 continue;
@@ -174,8 +188,13 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
                 continue;
             }
             for (StringHolder evt1 : config.getKeys(false)) {
-                String evt = evt1.str.substring(3);
-                paths.add(new ScriptPath(container, evt));
+                String evt = evt1.str.substring("on ".length()).replace("&dot", ".").replace("&amp", "&");
+                ScriptPath path = new ScriptPath(container, evt, evt1.str);
+                if (path.set == null) {
+                    Debug.echoError("Script path '" + path + "' is invalid (empty or misconfigured).");
+                    continue;
+                }
+                paths.add(path);
             }
         }
         for (ScriptEvent event : events) {
@@ -186,8 +205,10 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
                 for (ScriptPath path : paths) {
                     if (event.couldMatch(path)) {
                         event.eventPaths.add(path);
-                        path.matches++;
-                        Debug.log("Event match, " + event.getName() + " matched for '" + path + "'!");
+                        path.matches.add(event);
+                        if (Debug.showLoading) {
+                            Debug.log("Event match, " + event.getName() + " matched for '" + path + "'!");
+                        }
                         matched = true;
                     }
                 }
@@ -202,10 +223,10 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             }
         }
         for (ScriptPath path : paths) {
-            if (path.matches > 1) {
-                Debug.log("Event " + path + " is matched to multiple ScriptEvents.");
+            if (path.matches.size() > 1) {
+                Debug.log("Event " + path + " is matched to multiple ScriptEvents: " + CoreUtilities.join(", ", path.matches));
             }
-            else if (path.matches == 0) {
+            else if (path.matches.isEmpty()) {
                 Debug.log("Event " + path + " is not matched to any ScriptEvents.");
             }
         }
@@ -264,9 +285,14 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     // The default priority is 0.
     // -->
     public void sort() {
-        for (ScriptPath path : eventPaths) {
-            String gotten = path.switches.get("priority");
-            path.priority = gotten == null ? 0 : ArgumentHelper.getIntegerFrom(gotten);
+        try {
+            for (ScriptPath path : eventPaths) {
+                String gotten = path.switches.get("priority");
+                path.priority = gotten == null ? 0 : Integer.parseInt(gotten);
+            }
+        }
+        catch (NumberFormatException ex) {
+            Debug.echoError("Failed to sort events: not-a-number priority value! " + ex.getMessage());
         }
         Collections.sort(eventPaths, new Comparator<ScriptPath>() {
             @Override
@@ -405,9 +431,6 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
                 Debug.echoDebug(path.container, "<Y>Context '<A>" + obj.getKey() + "<Y>' = '<A>" + obj.getValue().identify() + "<Y>'");
             }
         }
-        if (path.set == null) {
-            path.set = path.container.getSetFor("events.on " + path.event);
-        }
         List<ScriptEntry> entries = ScriptContainer.cleanDup(getScriptEntryData(), path.set);
         ScriptQueue queue = new InstantQueue(path.container.getName()).addEntries(entries);
         HashMap<String, ObjectTag> oldStyleContext = getContext();
@@ -464,6 +487,11 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         return null;
     }
 
+    @Override
+    public String toString() {
+        return getName();
+    }
+
     // <--[language]
     // @name Advanced Script Event Matching
     // @group Script Events
@@ -483,6 +511,10 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     // So how can you match a player breaking any of these? Use "on player breaks *_log:"
     // The asterisk is a generic wildcard, it means any text at all will match. So an asterisk followed by '_log' means
     // any material at all that has a name ending with '_log', including 'birch_log' and the rest.
+    //
+    // Note that you can also use multiple wildcards at once, like "on player breaks block with:my_*_script_*:"
+    // That example will work for item scripts named "my_item_script_1" and "my_first_script_of_items" or any similar name.
+    // Note also that wildcards still match for blanks, so "my_item_script_" would still work for that example.
     //
     // You can also specify lists. For example, if you want an event to work with certain tool types,
     // the 'on player breaks block:' event supports a switch named 'with', like 'on player breaks block with:iron_pickaxe:'
@@ -554,5 +586,39 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     public static boolean equalityCheck(String input, String compared, Pattern regexed) {
         input = CoreUtilities.toLowerCase(input);
         return input.equals(compared) || (regexed != null && regexed.matcher(input).matches());
+    }
+
+    public boolean runGenericCheck(String inputValue, String trueValue) {
+        if (inputValue != null) {
+            trueValue = CoreUtilities.toLowerCase(trueValue);
+            inputValue = CoreUtilities.toLowerCase(inputValue);
+            if (inputValue.equals(trueValue)) {
+                return true;
+            }
+            Pattern regexd = regexHandle(inputValue);
+            if (!equalityCheck(trueValue, inputValue, regexd)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean runGenericSwitchCheck(ScriptPath path, String switchName, String value) {
+        String with = path.switches.get(switchName);
+        if (with != null) {
+            if (value == null) {
+                return false;
+            }
+            value = CoreUtilities.toLowerCase(value);
+            with = CoreUtilities.toLowerCase(with);
+            if (with.equals(value)) {
+                return true;
+            }
+            Pattern regexd = regexHandle(with);
+            if (!equalityCheck(value, with, regexd)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

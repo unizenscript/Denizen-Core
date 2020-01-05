@@ -8,6 +8,7 @@ import com.denizenscript.denizencore.DenizenCore;
 
 import java.io.*;
 import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,11 +36,7 @@ public class ScriptHelper {
         ScriptRegistry.buildCoreYamlScriptContainers(_yamlScripts);
     }
 
-    public static YamlConfiguration _gs() {
-        return getScripts();
-    }
-
-    private static YamlConfiguration getScripts() {
+    public static YamlConfiguration getScripts() {
         if (_yamlScripts == null) {
             reloadScripts();
         }
@@ -112,9 +109,17 @@ public class ScriptHelper {
                 }
                 else {
                     String curLine = lines[lineNum].replace('\0', ' ');
-                    if (!trimmedLine.endsWith(":") && trimmedLine.startsWith("-")) {
+                    boolean endsColon = trimmedLine.endsWith(":");
+                    boolean startsDash = trimmedLine.startsWith("-");
+                    if (!endsColon && startsDash) {
                         curLine = curLine.replace(": ", "<&co> ");
                         curLine = curLine.replace("#", "<&ns>");
+                    }
+                    else if (endsColon && !startsDash) {
+                        if (curLine.contains(".")) {
+                            curLine = curLine.replace("&", "&amp").replace(".", "&dot");
+                            Debug.log("Originally " + trimmedLine + " became " + curLine);
+                        }
                     }
                     if (trimmedLine.startsWith("- ") && !trimmedLine.startsWith("- \"") && !trimmedLine.startsWith("- '")) {
                         int dashIndex = curLine.indexOf('-');
@@ -134,12 +139,16 @@ public class ScriptHelper {
     public static CharsetDecoder encoding = null;
 
     public static String convertStreamToString(InputStream is) {
+        return convertStreamToString(is, false);
+    }
+
+    public static String convertStreamToString(InputStream is, boolean defaultUTF8) {
         Scanner s;
-        if (encoding == null) {
+        if (encoding == null && !defaultUTF8) {
             s = new Scanner(is);
         }
         else {
-            s = new Scanner(new InputStreamReader(is, encoding));
+            s = new Scanner(new InputStreamReader(is, encoding == null ? StandardCharsets.UTF_8.newDecoder() : encoding));
         }
         s.useDelimiter("\\A");
         return s.hasNext() ? s.next() : "";
@@ -147,7 +156,7 @@ public class ScriptHelper {
 
     public static YamlConfiguration loadConfig(String filename, InputStream resource) throws IOException {
         try {
-            String script = clearComments(filename, convertStreamToString(resource), true);
+            String script = clearComments(filename, convertStreamToString(resource, filename.endsWith(".dsc")), true);
             return YamlConfiguration.load(script);
         }
         finally {
@@ -159,42 +168,26 @@ public class ScriptHelper {
 
         scriptSources.clear();
         try {
-            File file = null;
-            file = DenizenCore.getImplementation().getScriptFolder();
-
+            File file = DenizenCore.getImplementation().getScriptFolder();
             // Check if the directory exists
             if (!file.exists()) {
                 Debug.echoError("No script folder found, please create one.");
                 hadError = true;
                 return "";
             }
-
-
             // Get files using script directory
             List<File> files = CoreUtilities.listDScriptFiles(file);
-
             if (files.size() > 0) {
                 StringBuilder sb = new StringBuilder();
                 List<String> scriptNames = new ArrayList<>();
 
                 YamlConfiguration yaml;
 
-                Debug.log("Processing outside scripts... ");
-                for (YamlConfiguration outsideConfig : DenizenCore.getImplementation().getOutsideScripts()) {
-                    try {
-                        Debug.log("Processing unnamed script...");
-                        sb.append(outsideConfig.saveToString(false)).append("\r\n");
-                    }
-                    catch (Exception e) {
-                        Debug.echoError("Woah! Error parsing outside scripts!");
-                        hadError = true;
-                    }
-                }
-
                 for (File f : files) {
                     String fileName = f.getAbsolutePath().substring(file.getAbsolutePath().length());
-                    Debug.log("Processing '" + fileName + "'... ");
-
+                    if (Debug.showLoading) {
+                        Debug.log("Processing '" + fileName + "'... ");
+                    }
                     try {
                         yaml = loadConfig(f.getAbsolutePath(), new FileInputStream(f));
                         String saved = yaml != null ? yaml.saveToString(false) : null;
@@ -206,7 +199,6 @@ public class ScriptHelper {
                             Debug.echoError("Woah! Error parsing " + fileName + "! This script has been skipped. No internal error - is the file empty?");
                             hadError = true;
                         }
-
                     }
                     catch (Exception e) {
                         Debug.echoError("Woah! Error parsing " + fileName + "!");
@@ -214,15 +206,15 @@ public class ScriptHelper {
                         Debug.echoError(e);
                     }
                 }
-
-                Debug.echoApproval("All scripts loaded!");
+                if (Debug.showLoading) {
+                    Debug.echoApproval("All scripts loaded!");
+                }
                 return sb.toString();
             }
             else {
                 Debug.echoError("Woah! No scripts in /plugins/Denizen/scripts/ to load!");
                 hadError = true;
             }
-
         }
         catch (Exception e) {
             Debug.echoError("Woah! No script folder found in /plugins/Denizen/scripts/");
