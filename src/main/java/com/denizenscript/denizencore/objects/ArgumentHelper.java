@@ -177,6 +177,70 @@ public class ArgumentHelper {
         return "<G>" + prefix + "='<A>" + id + "<Y>(" + (value != null ? value.toString() : "null") + ")<G>'  ";
     }
 
+    public static boolean getBooleanFrom(String arg) {
+        return Boolean.parseBoolean(getStringFrom(arg));
+    }
+
+    public static double getDoubleFrom(String arg) {
+        String val = getStringFrom(arg);
+        try {
+            return Double.parseDouble(val);
+        }
+        catch (NumberFormatException e) {
+            Debug.echoError("Could not successfully convert \"" + val + "\" to a double! Returning 0.");
+            return 0d;
+        }
+    }
+
+    public static float getFloatFrom(String arg) {
+        String val = getStringFrom(arg);
+        try {
+            return Float.parseFloat(val);
+        }
+        catch (NumberFormatException e) {
+            Debug.echoError("Could not successfully convert \"" + val + "\" to a float! Returning 0.");
+            return 0f;
+        }
+    }
+
+    public static int getIntegerFrom(String arg) {
+        String val = getStringFrom(arg);
+        try {
+            return Integer.parseInt(val);
+        }
+        catch (NumberFormatException ex) {
+            try {
+                return Double.valueOf(val).intValue();
+            }
+            catch (NumberFormatException e) {
+                Debug.echoError("Could not successfully convert \"" + val + "\" to an integer! Returning 0.");
+                return 0;
+            }
+        }
+    }
+
+    public static long getLongFrom(String arg) {
+        String val = getStringFrom(arg);
+        try {
+            return Long.parseLong(val);
+        }
+        catch (NumberFormatException ex) {
+            try {
+                return Double.valueOf(getStringFrom(val)).longValue();
+            }
+            catch (NumberFormatException e) {
+                Debug.echoError("Could not successfully convert \"" + val + "\" to a long! Returning 0.");
+                return 0;
+            }
+        }
+    }
+
+
+    public static String getStringFrom(String arg) {
+        String[] parts = arg.split(":", 2);
+        return parts.length >= 2 ? parts[1] : arg;
+    }
+
     public static boolean matchesDouble(String arg) {
         return doublePrimitive.matcher(arg).matches();
     }
