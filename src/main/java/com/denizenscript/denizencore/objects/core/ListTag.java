@@ -142,14 +142,12 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         return inp instanceof ListTag ? (ListTag) inp : valueOf(inp.toString());
     }
 
-
     public static boolean matches(String arg) {
 
         boolean flag = DenizenCore.getImplementation().matchesFlagListTag(arg);
 
         return flag || arg.contains("|") || arg.contains(internal_escape) || arg.startsWith("li@");
     }
-
 
     /////////////
     //   Constructors
@@ -276,28 +274,6 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         return this;
     }
 
-    /**
-     * Fetches a String Array copy of the ListTag,
-     * with the same size as the ListTag.
-     *
-     * @return the array copy
-     */
-    public String[] toArray() {
-        return toArray(size());
-    }
-
-    /**
-     * Fetches a String Array copy of the ListTag.
-     *
-     * @param arraySize the size of the new array
-     * @return the array copy
-     */
-    public String[] toArray(int arraySize) { // TODO: Why does this exist?
-        List<String> list = new ArrayList<>(this);
-        return list.toArray(new String[arraySize]);
-    }
-
-
     // Returns if the list contains objects from the specified dClass
     // by using the matches() method.
     public boolean containsObjectsFrom(Class<? extends ObjectTag> dClass) {
@@ -312,13 +288,6 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         return false;
     }
 
-
-    /**
-     * Return a new list that includes only strings that match the values of an Enum array
-     *
-     * @param values the Enum's value
-     * @return a filtered list
-     */
     public List<String> filter(Enum[] values) {
         List<String> list = new ArrayList<>();
 
@@ -405,11 +374,9 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         return identify();
     }
 
-
     //////////////////////////////
     //    DSCRIPT ARGUMENT METHODS
     /////////////////////////
-
 
     private String prefix = "List";
 
@@ -468,7 +435,6 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         }
         return output.substring(0, output.length() - 1);
     }
-
 
     @Override
     public String identifySimple() {
@@ -1820,12 +1786,10 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
             return new ElementTag(CoreUtilities.getClosestOption(object, attribute.getContext(1)));
         });
 
-
         registerTag("as_list", (attribute, object) -> {
             // Special handler for flag lists.
             return new ListTag(object);
         }, "aslist");
-
 
         // <--[tag]
         // @attribute <ListTag.type>
