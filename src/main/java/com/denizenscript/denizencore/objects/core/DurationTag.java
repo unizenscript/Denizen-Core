@@ -67,7 +67,9 @@ public class DurationTag implements ObjectTag {
             return null;
         }
 
-        string = CoreUtilities.toLowerCase(string.replace("d@", ""));
+        if (string.startsWith("d@")) {
+            string = string.substring(2);
+        }
 
         if (string.equals("instant")) {
             return new DurationTag(0);
@@ -77,8 +79,8 @@ public class DurationTag implements ObjectTag {
         if (string.contains("-") && !string.contains("e-")) {
             String[] split = string.split("-", 2);
             if (split.length == 2) {
-                DurationTag low = DurationTag.valueOf(split[0]);
-                DurationTag high = DurationTag.valueOf(split[1]);
+                DurationTag low = DurationTag.valueOf(split[0], context);
+                DurationTag high = DurationTag.valueOf(split[1], context);
 
                 // Make sure 'low' and 'high' returned valid Durations,
                 // and that 'low' is less time than 'high'.
