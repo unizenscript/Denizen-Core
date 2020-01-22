@@ -55,13 +55,13 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
 
     @Override
     public boolean add(String addMe) {
-        objectForms.add(new ElementTag(addMe));
+        objectForms.add(ObjectFetcher.pickObjectFor(addMe));
         return super.add(addMe);
     }
 
     @Override
     public void add(int index, String addMe) {
-        objectForms.add(index, new ElementTag(addMe));
+        objectForms.add(index, ObjectFetcher.pickObjectFor(addMe));
         super.add(index, addMe);
     }
 
@@ -225,7 +225,7 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         }
         objectForms = new ArrayList<>(size());
         for (String str : this) {
-            objectForms.add(new ElementTag(str));
+            objectForms.add(ObjectFetcher.pickObjectFor(str));
         }
 
         checkIfEmpty(); // Unizen-added
@@ -250,7 +250,7 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         }
         objectForms = new ArrayList<>(size());
         for (String str : this) {
-            objectForms.add(new ElementTag(str));
+            objectForms.add(ObjectFetcher.pickObjectFor(str));
         }
 
         checkIfEmpty(); // Unizen-added
@@ -282,7 +282,7 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         }
         objectForms = new ArrayList<>(size());
         for (String str : this) {
-            objectForms.add(new ElementTag(str));
+            objectForms.add(ObjectFetcher.pickObjectFor(str));
         }
 
         checkIfEmpty(); // Unizen-added
