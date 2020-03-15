@@ -1414,6 +1414,9 @@ public class ElementTag implements ObjectTag {
         // If a split string is unspecified, splits by space.
         // -->
         registerTag("split", (attribute, object) -> {
+            if (object.element.isEmpty()) {
+                return new ListTag();
+            }
             String split_string = (attribute.hasContext(1) ? attribute.getContext(1) : " ");
             if (CoreUtilities.toLowerCase(split_string).startsWith("regex:")) {
                 split_string = split_string.split(":", 2)[1];
