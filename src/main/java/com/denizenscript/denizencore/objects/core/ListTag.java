@@ -55,13 +55,13 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
 
     @Override
     public boolean add(String addMe) {
-        objectForms.add(new ElementTag(addMe));
+        objectForms.add(ObjectFetcher.pickObjectFor(addMe));
         return super.add(addMe);
     }
 
     @Override
     public void add(int index, String addMe) {
-        objectForms.add(index, new ElementTag(addMe));
+        objectForms.add(index, ObjectFetcher.pickObjectFor(addMe));
         super.add(index, addMe);
     }
 
@@ -163,6 +163,8 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         for (ObjectTag obj : objectTagList) {
             super.add(obj.identify());
         }
+
+        checkIfEmpty(); // Unizen-added
     }
 
     public ListTag(ObjectTag... objects) {
@@ -210,6 +212,8 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         for (String str : this) {
             objectForms.add(ObjectFetcher.pickObjectFor(str, context));
         }
+
+        checkIfEmpty(); // Unizen-added
     }
 
     public ListTag(String flag, boolean is_flag, List<String> flag_contents) {
@@ -221,8 +225,10 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         }
         objectForms = new ArrayList<>(size());
         for (String str : this) {
-            objectForms.add(new ElementTag(str));
+            objectForms.add(ObjectFetcher.pickObjectFor(str));
         }
+
+        checkIfEmpty(); // Unizen-added
     }
 
     public ListTag(ListTag input) {
@@ -231,6 +237,8 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         for (String str : input) {
             super.add(str);
         }
+
+        checkIfEmpty(); // Unizen-added
     }
 
     // A List<String> of items
@@ -242,8 +250,10 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         }
         objectForms = new ArrayList<>(size());
         for (String str : this) {
-            objectForms.add(new ElementTag(str));
+            objectForms.add(ObjectFetcher.pickObjectFor(str));
         }
+
+        checkIfEmpty(); // Unizen-added
     }
 
     // A Set<Object> of items
@@ -261,6 +271,8 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
                 }
             }
         }
+
+        checkIfEmpty(); // Unizen-added
     }
 
     // A List<String> of items, with a prefix
@@ -270,13 +282,26 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         }
         objectForms = new ArrayList<>(size());
         for (String str : this) {
-            objectForms.add(new ElementTag(str));
+            objectForms.add(ObjectFetcher.pickObjectFor(str));
         }
+
+        checkIfEmpty(); // Unizen-added
     }
 
     /////////////
     //   Instance Fields/Methods
     //////////
+
+    // Unizen start
+
+    public void checkIfEmpty() {
+        if (super.size() == 1 && super.get(0).isEmpty()) {
+            super.clear();
+            objectForms.clear();
+        }
+    }
+
+    // Unizen end
 
     public ListTag addObjects(List<ObjectTag> ObjectTags) {
         for (ObjectTag obj : ObjectTags) {
