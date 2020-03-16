@@ -11,6 +11,7 @@ public class Debug {
 
     public static boolean verbose = false;
 
+    public static boolean showLoading = false;
 
     /**
      * Can be used with echoDebug(...) to output a header, footer,

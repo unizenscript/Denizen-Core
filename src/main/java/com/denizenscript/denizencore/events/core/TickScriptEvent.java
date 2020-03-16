@@ -2,7 +2,6 @@ package com.denizenscript.denizencore.events.core;
 
 import com.denizenscript.denizencore.events.ScriptEvent;
 import com.denizenscript.denizencore.objects.core.ElementTag;
-import com.denizenscript.denizencore.objects.ArgumentHelper;
 import com.denizenscript.denizencore.objects.ObjectTag;
 import com.denizenscript.denizencore.scripts.ScriptEntryData;
 import com.denizenscript.denizencore.DenizenCore;
@@ -13,7 +12,7 @@ public class TickScriptEvent extends ScriptEvent {
     // @Events
     // tick
     //
-    // @Switch every <count>
+    // @Switch every:<count> to only run the event every *count* times (like "every:5" for every 5 ticks).
     //
     // @Regex ^on tick$
     //
@@ -63,7 +62,7 @@ public class TickScriptEvent extends ScriptEvent {
     @Override
     public boolean matches(ScriptPath path) {
         String countString = path.switches.get("every");
-        int count = countString == null ? 1 : ArgumentHelper.getIntegerFrom(countString);
+        int count = countString == null ? 1 : Integer.parseInt(countString);
         return ticks % count == 0;
     }
 

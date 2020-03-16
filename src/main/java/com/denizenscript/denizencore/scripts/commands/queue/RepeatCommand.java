@@ -18,7 +18,7 @@ public class RepeatCommand extends BracedCommand {
     // @Required 1
     // @Short Runs a series of braced commands several times.
     // @Group queue
-    // @Video /denizen/vids/Loops
+    // @Guide https://guide.denizenscript.com/guides/basics/loops.html
     //
     // @Description
     // Loops through a series of braced commands a specified number of times.
@@ -48,7 +48,6 @@ public class RepeatCommand extends BracedCommand {
     public void onEnable() {
         setBraced();
     }
-
 
     @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {

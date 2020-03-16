@@ -1,5 +1,6 @@
 package com.denizenscript.denizencore.scripts.commands.queue;
 
+import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.exceptions.InvalidArgumentsException;
 import com.denizenscript.denizencore.objects.Argument;
 import com.denizenscript.denizencore.objects.core.DurationTag;
@@ -58,7 +59,6 @@ public class RateLimitCommand extends AbstractCommand {
     @Override
     public void execute(ScriptEntry scriptEntry) {
 
-
         DurationTag duration = scriptEntry.getObjectTag("duration");
         ElementTag object = scriptEntry.getElement("object");
 
@@ -72,7 +72,7 @@ public class RateLimitCommand extends AbstractCommand {
         HashMap<String, Long> map = (HashMap<String, Long>) scriptEntry.internal.specialProcessedData;
         String key = CoreUtilities.toLowerCase(object.asString());
         Long endTime = map.get(key);
-        long curTime = System.currentTimeMillis();
+        long curTime = DenizenCore.serverTimeMillis;
         if (endTime != null && curTime < endTime) {
             Debug.echoDebug(scriptEntry, "Rate limit applied with " + (endTime - curTime) + "ms left.");
             scriptEntry.getResidingQueue().clear();

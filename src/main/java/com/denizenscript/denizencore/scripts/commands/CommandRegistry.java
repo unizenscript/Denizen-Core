@@ -66,9 +66,10 @@ public abstract class CommandRegistry {
     // Anything outside of <> is literal... you must put it exactly as-is.
     // <#> represents a number without a decimal, and <#.#> represents a number with a decimal
     // Lastly, input that ends with "|..." (EG, [<entity>|...] ) can take a list of the input indicated before it (In that example, a list of entities)
+    // An argument that contains a ":" (like "duration:<value>") is a prefix:value pair. The prefix is usually literal and the value dynamic. The prefix and the colon should be kept directly in the final command.
     //
     // A few examples:
-    // [<location>] is required and non-literal... you might fill it with 'l@1,2,3,world' which is a valid location object.
+    // [<location>] is required and non-literal... you might fill it with a notable location, or a tag that returns one like '<player.location>'.
     // (sound:{true}/false) is optional and has a default value of true... you can put sound:false to prevent sound, or leave it blank to allow sound.
     // (repeats:<#>) is optional, has no clear default, and is a number. You can put repeats:3 to repeat three times, or leave it blank to not repeat.
     // Note: Optional arguments without a default usually have a secret default... EG, the (repeats:<#>) above has a secret default of '0'.
@@ -98,16 +99,16 @@ public abstract class CommandRegistry {
         registerCoreMember(FileCopyCommand.class, "FILECOPY", "filecopy [origin:<origin>] [destination:<destination>] (overwrite)", 2);
         registerCoreMember(ForeachCommand.class, "FOREACH", "foreach [stop/next/<object>|...] (as:<name>) [<commands>]", 1);
         registerCoreMember(GotoCommand.class, "GOTO", "goto [<name>]", 1);
-        registerCoreMember(IfCommand.class, "IF", "if [<value>] (!)(<operator> <value>) (&&/|| ...) [<commands>] (else <commands>)", 1);
+        registerCoreMember(IfCommand.class, "IF", "if [<value>] (!)(<operator> <value>) (&&/|| ...) [<commands>]", 1);
         registerCoreMember(InjectCommand.class, "INJECT", "inject (locally) [<script>] (path:<name>) (instantly)", 1);
         registerCoreMember(LogCommand.class, "LOG", "log [<text>] (type:{info}/severe/warning/fine/finer/finest/none/clear) [file:<name>]", 2);
         registerCoreMember(MarkCommand.class, "MARK", "mark [<name>]", 1);
-        registerCoreMember(QueueCommand.class, "QUEUE", "queue (<queue>) [clear/stop/pause/resume/delay:<#>]", 1);
-        registerCoreMember(RandomCommand.class, "RANDOM", "random [<#>/<commands>]", 0);
+        registerCoreMember(QueueCommand.class, "QUEUE", "queue (<queue>) [clear/stop/pause/resume/delay:<duration>]", 1);
+        registerCoreMember(RandomCommand.class, "RANDOM", "random [<commands>]", 0);
         registerCoreMember(RateLimitCommand.class, "RATELIMIT", "ratelimit [<object>] [<duration>]", 2);
         registerCoreMember(ReloadCommand.class, "RELOAD", "reload", 0);
         registerCoreMember(RepeatCommand.class, "REPEAT", "repeat [stop/next/<amount>] [<commands>] (as:<name>)", 1);
-        registerCoreMember(RunCommand.class, "RUN", "run (locally) [<script>] (path:<name>) (def:<element>|...) (id:<name>) (instantly) (speed:<value>) (delay:<value>)", 1);
+        registerCoreMember(RunCommand.class, "RUN", "run [<script>/locally] (path:<name>) (def:<element>|...) (id:<name>) (speed:<value>/instantly) (delay:<value>)", 1);
         registerCoreMember(SQLCommand.class, "SQL", "sql [id:<ID>] [disconnect/connect:<server> (username:<username>) (password:<password>) (ssl:true/{false})/query:<query>/update:<update>]", 2);
         registerCoreMember(StopCommand.class, "STOP", "stop", 0);
         registerCoreMember(SyncCommand.class, "SYNC", "sync [<commands>]", 0);
@@ -115,7 +116,7 @@ public abstract class CommandRegistry {
         registerCoreMember(WaitUntilCommand.class, "WAITUNTIL", "waituntil (rate:<duration>) [<comparisons>]", 1);
         registerCoreMember(WebGetCommand.class, "WEBGET", "webget [<url>] (post:<data>) (headers:<header>/<value>|...) (timeout:<duration>/{10s}) (savefile:<path>)", 1);
         registerCoreMember(WhileCommand.class, "WHILE", "while [stop/next/<comparison tag>] [<commands>]", 1);
-        registerCoreMember(YamlCommand.class, "YAML", "yaml [create]/[load:<file>]/[loadtext:<text> (fix_formatting)]/[unload]/[savefile:<file>]/[copykey:<source key> <target key> (to_id:<name>)]/[set <key>([<#>])(:<action>):<value>] [id:<name>]", 2);
+        registerCoreMember(YamlCommand.class, "YAML", "yaml [create]/[load:<file>]/[loadtext:<text>]/[unload]/[savefile:<file>]/[copykey:<source key> <target key> (to_id:<name>)]/[set <key>([<#>])(:<action>):<value>] [id:<name>]", 2);
     }
 
     public <T extends AbstractCommand> void registerCoreMember(Class<T> cmd, String names, String hint, int args) {

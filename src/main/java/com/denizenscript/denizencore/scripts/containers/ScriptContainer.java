@@ -53,15 +53,18 @@ public class ScriptContainer implements Debuggable {
     //
     // -->
 
-
     public ScriptContainer(YamlConfiguration configurationSection, String scriptContainerName) {
         if (configurationSection == null) {
             Debug.echoError("Null configuration section while generating a ScriptContainer?!");
+            throw new RuntimeException("Null configuration section while generating a ScriptContainer");
         }
         contents = configurationSection;
+        configurationSection.forceLoweredRootKey("type");
+        configurationSection.forceLoweredRootKey("debug");
+        configurationSection.forceLoweredRootKey("script");
+        configurationSection.forceLoweredRootKey("speed");
         this.name = scriptContainerName.toUpperCase();
     }
-
 
     // The contents of the script container
     YamlConfiguration contents;
@@ -75,7 +78,6 @@ public class ScriptContainer implements Debuggable {
         return contents;
     }
 
-
     /**
      * Casts this container to a specify type of script container. Must be a valid
      * container type of the type casting to.
@@ -87,7 +89,6 @@ public class ScriptContainer implements Debuggable {
     public <T extends ScriptContainer> T getAsContainerType(Class<T> type) {
         return type.cast(this);
     }
-
 
     // <--[language]
     // @name Script Name
@@ -143,7 +144,6 @@ public class ScriptContainer implements Debuggable {
         return ScriptHelper.getOriginalName(getName());
     }
 
-
     /**
      * Gets a ScriptTag object that represents this container.
      *
@@ -152,7 +152,6 @@ public class ScriptContainer implements Debuggable {
     public ScriptTag getAsScriptArg() {
         return ScriptTag.valueOf(name);
     }
-
 
     // <--[language]
     // @name Script Type
@@ -177,11 +176,10 @@ public class ScriptContainer implements Debuggable {
      * @return the type of container
      */
     public String getContainerType() {
-        return contents.contains("TYPE")
-                ? contents.getString("TYPE").toUpperCase()
+        return contents.contains("type")
+                ? contents.getString("type").toUpperCase()
                 : null;
     }
-
 
     /**
      * Checks the ConfigurationSection for the key/path to key specified.
@@ -193,16 +191,13 @@ public class ScriptContainer implements Debuggable {
         return contents.contains(path);
     }
 
-
     public String getString(String path) {
         return contents.getString(path);
     }
 
-
     public String getString(String path, String def) {
         return contents.getString(path, def);
     }
-
 
     public List<String> getStringList(String path) {
         List<String> strs = contents.getStringList(path);
@@ -216,7 +211,6 @@ public class ScriptContainer implements Debuggable {
         return output;
     }
 
-
     public YamlConfiguration getConfigurationSection(String path) {
         if (path.length() == 0) {
             return contents;
@@ -224,11 +218,9 @@ public class ScriptContainer implements Debuggable {
         return contents.getConfigurationSection(path);
     }
 
-
     public void set(String path, Object object) {
         contents.set(path, object);
     }
-
 
     public ScriptEntrySet baseEntries = null;
 

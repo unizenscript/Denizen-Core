@@ -3,6 +3,7 @@ package com.denizenscript.denizencore.tags.core;
 import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.DurationTag;
 import com.denizenscript.denizencore.objects.core.ElementTag;
+import com.denizenscript.denizencore.objects.core.ListTag;
 import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
 import com.denizenscript.denizencore.tags.TagRunnable;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
@@ -57,8 +58,8 @@ public class UtilTagBase {
                 attribute = attribute.fulfill(1);
                 if (attribute.startsWith("to")) {
                     if (ArgumentHelper.matchesInteger(stc) && ArgumentHelper.matchesInteger(attribute.getContext(1))) {
-                        int min = ArgumentHelper.getIntegerFrom(stc);
-                        int max = ArgumentHelper.getIntegerFrom(attribute.getContext(1));
+                        int min = Integer.parseInt(stc);
+                        int max = attribute.getIntContext(1);
 
                         // in case the first number is larger than the second, reverse them
                         if (min > max) {
@@ -87,8 +88,8 @@ public class UtilTagBase {
                 attribute = attribute.fulfill(1);
                 if (attribute.startsWith("to")) {
                     if (ArgumentHelper.matchesDouble(stc) && ArgumentHelper.matchesDouble(attribute.getContext(1))) {
-                        double min = ArgumentHelper.getDoubleFrom(stc);
-                        double max = ArgumentHelper.getDoubleFrom(attribute.getContext(1));
+                        double min = Double.parseDouble(stc);
+                        double max = Double.parseDouble(attribute.getContext(1));
 
                         // in case the first number is larger than the second, reverse them
                         if (min > max) {
@@ -159,8 +160,7 @@ public class UtilTagBase {
         // Returns PI: 3.14159265358979323846
         // -->
         else if (attribute.startsWith("pi")) {
-            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Math.PI)
-                    , attribute.fulfill(1)));
+            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Math.PI), attribute.fulfill(1)));
         }
 
         // <--[tag]
@@ -170,8 +170,7 @@ public class UtilTagBase {
         // Returns Tau: 6.28318530717958647692
         // -->
         else if (attribute.startsWith("tau")) {
-            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Math.PI * 2)
-                    , attribute.fulfill(1)));
+            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Math.PI * 2), attribute.fulfill(1)));
         }
 
         // <--[tag]
@@ -181,8 +180,29 @@ public class UtilTagBase {
         // Returns e: 2.7182818284590452354
         // -->
         else if (attribute.matches("e")) {
-            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Math.E)
-                    , attribute.fulfill(1)));
+            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Math.E), attribute.fulfill(1)));
+        }
+
+        // <--[tag]
+        // @attribute <util.list_denizen_commands>
+        // @returns ListTag
+        // @description
+        // Returns a list of all currently loaded Denizen commands.
+        // -->
+        else if (attribute.startsWith("list_denizen_commands")) {
+            ListTag result = new ListTag(DenizenCore.getCommandRegistry().instances.keySet());
+            event.setReplacedObject(CoreUtilities.autoAttrib(result, attribute.fulfill(1)));
+        }
+
+        // <--[tag]
+        // @attribute <util.list_tag_bases>
+        // @returns ListTag
+        // @description
+        // Returns a list of all currently loaded Denizen tag bases (including "player", "context", "util", "server", etc).
+        // -->
+        else if (attribute.startsWith("list_tag_bases")) {
+            ListTag result = new ListTag(TagManager.handlers.keySet());
+            event.setReplacedObject(CoreUtilities.autoAttrib(result, attribute.fulfill(1)));
         }
 
         // <--[tag]
@@ -412,14 +432,13 @@ public class UtilTagBase {
         }
     }
 
-
     public static void adjustSystem(Mechanism mechanism) {
         ElementTag value = mechanism.getValue();
 
         // <--[mechanism]
         // @object system
         // @name redirect_logging
-        // @input Element(Boolean)
+        // @input ElementTag(Boolean)
         // @description
         // Tells the server to redirect logging to a world event or not.
         // Note that this redirects *all console output* not just Denizen output.

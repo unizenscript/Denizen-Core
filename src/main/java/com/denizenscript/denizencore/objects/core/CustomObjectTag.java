@@ -4,6 +4,7 @@ import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.scripts.ScriptRegistry;
 import com.denizenscript.denizencore.scripts.containers.ScriptContainer;
 import com.denizenscript.denizencore.scripts.containers.core.CustomScriptContainer;
+import com.denizenscript.denizencore.tags.ObjectTagProcessor;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.DenizenCore;
@@ -20,7 +21,7 @@ public class CustomObjectTag implements ObjectTag, Adjustable {
     // @group Object System
     // @description
     // Custom objects are custom object types. They use a script basis to create an object
-    // similar to the base object types (dLists, PlayerTags, etc).
+    // similar to the base object types (ListTag, PlayerTags, etc).
     //
     // Usage of these should generally be avoided, as they can be considered 'over-engineering'...
     // That is, using a very complicated solution to solve a problem that can be solved much more simply.
@@ -94,7 +95,7 @@ public class CustomObjectTag implements ObjectTag, Adjustable {
     public String identify() {
         StringBuilder outp = new StringBuilder();
         for (Map.Entry<String, ObjectTag> var : vars.entrySet()) {
-            outp.append(var.getKey() + "=" + var.getValue().toString().replace(';', (char) 0x2011) + ";");
+            outp.append(var.getKey()).append("=").append(var.getValue().toString().replace(';', (char) 0x2011)).append(";");
         }
         return "custom@" + container.getName() + "[" + (outp.length() > 0 ? outp.substring(0, outp.length() - 1) : "") + "]";
     }
@@ -125,6 +126,8 @@ public class CustomObjectTag implements ObjectTag, Adjustable {
         return false;
     }
 
+    public static ObjectTagProcessor<CustomObjectTag> tagProcessor = new ObjectTagProcessor<>();
+
     @Override
     public ObjectTag getObjectAttribute(Attribute attribute) {
         if (attribute == null) {
@@ -136,20 +139,20 @@ public class CustomObjectTag implements ObjectTag, Adjustable {
         }
 
         ObjectTag res = vars.get(attribute.getAttribute(1));
-        if (res == null) {
-            String taggo = attribute.getAttributeWithoutContext(1);
-            if (container.hasPath("tags." + taggo)) {
-                ListTag outcomes = container.runTagScript(taggo, attribute.getContextObject(1), this,
-                        attribute.getScriptEntry() != null ? attribute.getScriptEntry().entryData :
-                                DenizenCore.getImplementation().getEmptyScriptEntryData());
-                if (outcomes == null) {
-                    return null;
-                }
-                return CoreUtilities.autoAttribTyped(outcomes.getObject(0), attribute.fulfill(1));
-            }
-            return new ElementTag(identify()).getObjectAttribute(attribute);
+        if (res != null) {
+            return CoreUtilities.autoAttribTyped(res, attribute.fulfill(1));
         }
-        return CoreUtilities.autoAttribTyped(res, attribute.fulfill(1));
+        String taggo = attribute.getAttributeWithoutContext(1);
+        if (container.hasPath("tags." + taggo)) {
+            ListTag outcomes = container.runTagScript(taggo, attribute.getContextObject(1), this,
+                    attribute.getScriptEntry() != null ? attribute.getScriptEntry().entryData :
+                            DenizenCore.getImplementation().getEmptyScriptEntryData());
+            if (outcomes == null) {
+                return null;
+            }
+            return CoreUtilities.autoAttribTyped(outcomes.getObject(0), attribute.fulfill(1));
+        }
+        return tagProcessor.getObjectAttribute(this, attribute);
     }
 
     @Override

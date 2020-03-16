@@ -18,7 +18,7 @@ public class ForeachCommand extends BracedCommand {
     // @Required 1
     // @Short Loops through a ListTag, running a set of commands for each item.
     // @Group queue
-    // @Video /denizen/vids/Loops
+    // @Guide https://guide.denizenscript.com/guides/basics/loops.html
     //
     // @Description
     // Loops through a ListTag of any type. For each item in the ListTag, the specified commands will be ran for
@@ -36,7 +36,7 @@ public class ForeachCommand extends BracedCommand {
     //
     // @Usage
     // Use to run commands 'for each entry' in a list of objects/elements.
-    // - foreach li@e@123|n@424|p@BobBarker:
+    // - foreach <[some_entity]>|<[some_npc]>|<[player]>:
     //     - announce "There's something at <[value].location>!"
     //
     // @Usage
@@ -84,7 +84,7 @@ public class ForeachCommand extends BracedCommand {
                 scriptEntry.addObject("as_name", arg.asElement());
             }
             else if (!handled) {
-                scriptEntry.addObject("list", ListTag.valueOf(arg.raw_value));
+                scriptEntry.addObject("list", arg.object instanceof ListTag ? (ListTag) arg.object : ListTag.valueOf(arg.raw_value, scriptEntry.getContext()));
                 scriptEntry.addObject("braces", getBracedCommands(scriptEntry));
                 handled = true;
             }

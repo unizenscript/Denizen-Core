@@ -28,7 +28,6 @@ public class GotoCommand extends AbstractCommand {
     // </code>
     //
     // @Tags
-    //
     // None
     //
     // @Usage
@@ -57,7 +56,6 @@ public class GotoCommand extends AbstractCommand {
         }
 
     }
-
 
     @Override
     public void execute(ScriptEntry scriptEntry) {

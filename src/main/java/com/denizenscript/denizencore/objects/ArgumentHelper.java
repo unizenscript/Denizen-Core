@@ -178,45 +178,58 @@ public class ArgumentHelper {
     }
 
     public static boolean getBooleanFrom(String arg) {
-        return Boolean.valueOf(getStringFrom(arg));
+        return Boolean.parseBoolean(getStringFrom(arg));
     }
 
     public static double getDoubleFrom(String arg) {
+        String val = getStringFrom(arg);
         try {
-            return Double.valueOf(getStringFrom(arg));
+            return Double.parseDouble(val);
         }
         catch (NumberFormatException e) {
-            return 0D;
+            Debug.echoError("Could not successfully convert \"" + val + "\" to a double! Returning 0.");
+            return 0d;
         }
     }
 
     public static float getFloatFrom(String arg) {
+        String val = getStringFrom(arg);
         try {
-            return Float.valueOf(getStringFrom(arg));
+            return Float.parseFloat(val);
         }
         catch (NumberFormatException e) {
+            Debug.echoError("Could not successfully convert \"" + val + "\" to a float! Returning 0.");
             return 0f;
         }
     }
 
     public static int getIntegerFrom(String arg) {
+        String val = getStringFrom(arg);
         try {
-            return Double.valueOf(getStringFrom(arg)).intValue();
+            return Integer.parseInt(val);
         }
-        catch (NumberFormatException e) {
-            return 0;
+        catch (NumberFormatException ex) {
+            try {
+                return Double.valueOf(val).intValue();
+            }
+            catch (NumberFormatException e) {
+                Debug.echoError("Could not successfully convert \"" + val + "\" to an integer! Returning 0.");
+                return 0;
+            }
         }
     }
 
     public static long getLongFrom(String arg) {
+        String val = getStringFrom(arg);
         try {
-            return Long.valueOf(arg);
+            return Long.parseLong(val);
         }
         catch (NumberFormatException ex) {
             try {
-                return Double.valueOf(getStringFrom(arg)).longValue();
+                return Double.valueOf(getStringFrom(val)).longValue();
             }
             catch (NumberFormatException e) {
+                Debug.echoError("Could not successfully convert \"" + val + "\" to a long! Returning 0.");
                 return 0;
             }
         }

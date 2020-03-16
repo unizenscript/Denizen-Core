@@ -17,7 +17,7 @@ public class InjectCommand extends AbstractCommand {
     // @Syntax inject (locally) [<script>] (path:<name>) (instantly)
     // @Required 1
     // @Short Runs a script in the current ScriptQueue.
-    // @Video /denizen/vids/Run%20And%20Inject
+    // @Guide https://guide.denizenscript.com/guides/basics/run-options.html
     // @Group queue
     //
     // @Description
@@ -113,7 +113,7 @@ public class InjectCommand extends AbstractCommand {
         }
 
         if (scriptEntry.hasObject("instant")) {
-            scriptEntry.getResidingQueue().runNow(entries, "INJECT");
+            scriptEntry.getResidingQueue().runNow(entries);
         }
         else {
             scriptEntry.getResidingQueue().injectEntries(entries, 0);

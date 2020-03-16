@@ -13,7 +13,7 @@ public class ElseCommand extends AbstractCommand {
     // @Required 0
     // @Short Helper command for usage with the if command.
     // @Group queue
-    // @Video /denizen/vids/Alternate/Dynamic%20Actions:%20The%20If%20Command
+    // @Guide https://guide.denizenscript.com/guides/basics/if-command.html
     //
     // @Description
     // A helper command for ':' syntax if commands.
@@ -29,7 +29,6 @@ public class ElseCommand extends AbstractCommand {
     @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
     }
-
 
     @Override
     public void execute(ScriptEntry scriptEntry) {

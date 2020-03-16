@@ -2,7 +2,6 @@ package com.denizenscript.denizencore.events.core;
 
 import com.denizenscript.denizencore.events.ScriptEvent;
 import com.denizenscript.denizencore.objects.core.ElementTag;
-import com.denizenscript.denizencore.objects.ArgumentHelper;
 import com.denizenscript.denizencore.objects.ObjectTag;
 import com.denizenscript.denizencore.scripts.ScriptEntryData;
 import com.denizenscript.denizencore.DenizenCore;
@@ -13,7 +12,7 @@ public class DeltaTimeScriptEvent extends ScriptEvent {
     // @Events
     // delta time [hourly/minutely/secondly]
     //
-    // @Switch every <count>
+    // @Switch every:<count> to only run the event every *count* times (like "on delta time secondly every:5" for every 5 seconds).
     //
     // @Regex ^on delta time (hourly|minutely|secondly)$
     //
@@ -43,7 +42,7 @@ public class DeltaTimeScriptEvent extends ScriptEvent {
         String time = path.rawEventArgAt(2);
         long seconds = DenizenCore.serverTimeMillis / 1000;
         String countString = path.switches.get("every");
-        int count = countString == null ? 1 : ArgumentHelper.getIntegerFrom(countString);
+        int count = countString == null ? 1 : Integer.parseInt(countString);
         if (time.equals("secondly")) {
             return seconds % count == 0;
         }

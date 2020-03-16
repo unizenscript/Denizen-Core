@@ -13,7 +13,6 @@ import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.utilities.text.StringHolder;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class OldEventManager {
 
@@ -21,14 +20,11 @@ public class OldEventManager {
     //  MAPS
     ////////////
 
-
     // Map for keeping the WorldScriptContainers
-    public static Map<String, WorldScriptContainer> world_scripts =
-            new ConcurrentHashMap<>(8, 0.9f, 1);
+    public static Map<String, WorldScriptContainer> world_scripts = new HashMap<>();
 
     // Map for keeping the names of events
-    public static Map<String, List<WorldScriptContainer>> events =
-            new HashMap<>();
+    public static Map<String, List<WorldScriptContainer>> events = new HashMap<>();
 
     // Map for keeping track of registered smart_events
     public static Set<OldSmartEvent> smart_events = new HashSet<>();
@@ -37,13 +33,14 @@ public class OldEventManager {
     // PERFORMANCE
     ///////////
 
-
     public static void scanWorldEvents() {
         try {
             // Build a Map of scripts keyed by 'world events name'.
 
             // Loop through each world script
-            Debug.log("Scanning " + world_scripts.size() + " world scripts...");
+            if (Debug.showLoading) {
+                Debug.log("Scanning " + world_scripts.size() + " world scripts...");
+            }
             for (WorldScriptContainer script : world_scripts.values()) {
                 if (script == null) {
                     Debug.echoError("Null world script?!");
@@ -100,8 +97,7 @@ public class OldEventManager {
     }
 
     public static List<String> trimEvents(List<String> original) {
-        List<String> event = new ArrayList<>();
-        event.addAll(original);
+        List<String> event = new ArrayList<>(original);
         List<String> parsed = new ArrayList<>();
 
         if (Debug.showEventsTrimming) {
@@ -129,11 +125,9 @@ public class OldEventManager {
         return parsed;
     }
 
-
     public static boolean eventExists(String original) {
         return events.containsKey("ON " + original.toUpperCase());
     }
-
 
     public static List<String> addAlternates(List<String> events) {
 
@@ -170,7 +164,6 @@ public class OldEventManager {
         finalEvents.addAll(newEvents);
         return finalEvents;
     }
-
 
     public static String StripIdentifiers(String original) {
         if (original.matches(".*?[a-z]+@[\\w ]+")) {
@@ -271,10 +264,8 @@ public class OldEventManager {
     //  REGISTRATION
     //////////////
 
-
     public void registerCoreMembers() {
     }
-
 
     public static void registerSmartEvent(OldSmartEvent event) {
         // Seems simple enough

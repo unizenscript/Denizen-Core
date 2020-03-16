@@ -24,13 +24,14 @@ import org.json.JSONObject;
 
 import java.io.*;
 import java.net.URLDecoder;
+import java.nio.charset.Charset;
 import java.util.*;
 
 public class YamlCommand extends AbstractCommand implements Holdable {
 
     // <--[command]
     // @Name Yaml
-    // @Syntax yaml [create]/[load:<file>]/[loadtext:<text> (fix_formatting)]/[unload]/[savefile:<file>]/[copykey:<source key> <target key> (to_id:<name>)]/[set <key>([<#>])(:<action>):<value>] [id:<name>]
+    // @Syntax yaml [create]/[load:<file>]/[loadtext:<text>]/[unload]/[savefile:<file>]/[copykey:<source key> <target key> (to_id:<name>)]/[set <key>([<#>])(:<action>):<value>] [id:<name>]
     // @Required 2
     // @Short Edits a YAML configuration file.
     // @Group file
@@ -39,11 +40,23 @@ public class YamlCommand extends AbstractCommand implements Holdable {
     // Edits a YAML configuration file.
     // This can be used for interacting with other plugins' configuration files.
     // It can also be used for storing your own script's data.
-    // TODO: Document Command Details
+    //
     // Use holdable syntax ("- ~yaml load:...") with load or savefile actions to avoid locking up the server during file IO.
     //
     // For loading and saving, the starting path is within 'plugins/Denizen'.
+    //
+    // Please note that all usages of the YAML command except for "load" and "savefile" arguments are purely in memory.
+    // That means, if you use "set" to make changes, those changes will not be saved to any file, until you use "savefile".
+    // Similarly, "create" does not create any file, instead it only creates a YAML object in RAM.
+    //
     // Note that the '.yml' extension is not automatically appended, and you will have to include that in filenames.
+    //
+    // All usages of the YAML command must include the "id:" argument. This is any arbitrary name, as plaintext or from a tag,
+    // to uniquely and globally identify the YAML object in memory. This ID can only be used by one YAML object at a type.
+    // IDs are stored when "create" or "load" arguments are used, and only removed when "unload" is used.
+    // If, for example, you have a unique YAML data container per-player, you might use something like "id:myscript_<player>".
+    //
+    // For ways to use the "set" argument, refer to <@link language data actions>.
     //
     // @Tags
     // <yaml[<idname>].contains[<path>]>
@@ -56,7 +69,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
     //
     // @Usage
     // Use to load a YAML file from disk.
-    // - yaml load:myfile.yml id:myfile
+    // - ~yaml load:myfile.yml id:myfile
     //
     // @Usage
     // Use to modify a YAML file similarly to a flag.
@@ -64,7 +77,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
     //
     // @Usage
     // Use to save a YAML file to disk.
-    // - yaml savefile:myfile.yml id:myfile
+    // - ~yaml savefile:myfile.yml id:myfile
     //
     // @Usage
     // Use to unload a YAML file from memory.
@@ -274,7 +287,6 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         scriptEntry.defaultObject("fix_formatting", new ElementTag("false"));
     }
 
-
     @Override
     public void execute(final ScriptEntry scriptEntry) {
 
@@ -331,9 +343,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                 Runnable onLoadCompleted = new Runnable() {
                     @Override
                     public void run() {
-                        if (yamls.containsKey(id)) {
-                            yamls.remove(id);
-                        }
+                        yamls.remove(id);
                         yamls.put(id, runnableConfigs[0]);
                         scriptEntry.setFinished(true);
                     }
@@ -376,9 +386,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
             case LOADTEXT:
                 String str = rawText.asString();
                 YamlConfiguration config = YamlConfiguration.load(str);
-                if (yamls.containsKey(id)) {
-                    yamls.remove(id);
-                }
+                yamls.remove(id);
                 yamls.put(id, config);
                 scriptEntry.setFinished(true);
                 break;
@@ -418,11 +426,17 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                             @Override
                             public void run() {
                                 try {
-                                    FileWriter fw = new FileWriter(fileObj.getAbsoluteFile());
-                                    BufferedWriter writer = new BufferedWriter(fw);
+                                    Charset charset = ScriptHelper.encoding == null ? null : ScriptHelper.encoding.charset();
+                                    FileOutputStream fiout = new FileOutputStream(fileObj);
+                                    OutputStreamWriter writer;
+                                    if (charset == null) {
+                                        writer = new OutputStreamWriter(fiout);
+                                    }
+                                    else {
+                                        writer = new OutputStreamWriter(fiout, charset);
+                                    }
                                     writer.write(outp);
                                     writer.close();
-                                    fw.close();
                                 }
                                 catch (IOException e) {
                                     Debug.echoError(e);
@@ -501,18 +515,54 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                     String valueStr = value.identify();
 
                     switch (yaml_action) {
-                        case INCREASE:
-                            Set(yaml, index, keyStr, CoreUtilities.doubleToString(ArgumentHelper.getDoubleFrom(Get(yaml, index, keyStr, "0")) + ArgumentHelper.getDoubleFrom(valueStr)));
+                        case INCREASE: {
+                            String originalVal = Get(yaml, index, keyStr, "0");
+                            if (!ArgumentHelper.matchesDouble(originalVal)) {
+                                originalVal = "0";
+                            }
+                            if (!ArgumentHelper.matchesDouble(valueStr)) {
+                                Debug.echoError("YAML action required a decimal number, was given not-a-decimal-number: " + valueStr);
+                                return;
+                            }
+                            Set(yaml, index, keyStr, CoreUtilities.doubleToString(Double.parseDouble(originalVal) + Double.parseDouble(valueStr)));
                             break;
-                        case DECREASE:
-                            Set(yaml, index, keyStr, CoreUtilities.doubleToString(ArgumentHelper.getDoubleFrom(Get(yaml, index, keyStr, "0")) - ArgumentHelper.getDoubleFrom(valueStr)));
+                        }
+                        case DECREASE: {
+                            String originalVal = Get(yaml, index, keyStr, "0");
+                            if (!ArgumentHelper.matchesDouble(originalVal)) {
+                                originalVal = "0";
+                            }
+                            if (!ArgumentHelper.matchesDouble(valueStr)) {
+                                Debug.echoError("YAML action required a decimal number, was given not-a-decimal-number: " + valueStr);
+                                return;
+                            }
+                            Set(yaml, index, keyStr, CoreUtilities.doubleToString(Double.parseDouble(originalVal) - Double.parseDouble(valueStr)));
                             break;
-                        case MULTIPLY:
-                            Set(yaml, index, keyStr, CoreUtilities.doubleToString(ArgumentHelper.getDoubleFrom(Get(yaml, index, keyStr, "1")) * ArgumentHelper.getDoubleFrom(valueStr)));
+                        }
+                        case MULTIPLY: {
+                            String originalVal = Get(yaml, index, keyStr, "1");
+                            if (!ArgumentHelper.matchesDouble(originalVal)) {
+                                originalVal = "0";
+                            }
+                            if (!ArgumentHelper.matchesDouble(valueStr)) {
+                                Debug.echoError("YAML action required a decimal number, was given not-a-decimal-number: " + valueStr);
+                                return;
+                            }
+                            Set(yaml, index, keyStr, CoreUtilities.doubleToString(Double.parseDouble(originalVal) * Double.parseDouble(valueStr)));
                             break;
-                        case DIVIDE:
-                            Set(yaml, index, keyStr, CoreUtilities.doubleToString(ArgumentHelper.getDoubleFrom(Get(yaml, index, keyStr, "1")) / ArgumentHelper.getDoubleFrom(valueStr)));
+                        }
+                        case DIVIDE: {
+                            String originalVal = Get(yaml, index, keyStr, "1");
+                            if (!ArgumentHelper.matchesDouble(originalVal)) {
+                                originalVal = "0";
+                            }
+                            if (!ArgumentHelper.matchesDouble(valueStr)) {
+                                Debug.echoError("YAML action required a decimal number, was given not-a-decimal-number: " + valueStr);
+                                return;
+                            }
+                            Set(yaml, index, keyStr, CoreUtilities.doubleToString(Double.parseDouble(originalVal) / Double.parseDouble(valueStr)));
                             break;
+                        }
                         case DELETE:
                             yaml.set(keyStr, null);
                             break;
@@ -559,7 +609,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                             break;
                         }
                         case SPLIT_NEW: {
-                            yaml.set(keyStr, new ArrayList<>(ListTag.valueOf(valueStr)));
+                            yaml.set(keyStr, new ArrayList<>(ListTag.valueOf(valueStr, scriptEntry.getContext())));
                             break;
                         }
                         case SPLIT: {
@@ -567,7 +617,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                             if (list == null) {
                                 list = new ArrayList<>();
                             }
-                            list.addAll(ListTag.valueOf(valueStr));
+                            list.addAll(ListTag.valueOf(valueStr, scriptEntry.getContext()));
                             yaml.set(keyStr, list);
                             break;
                         }
@@ -579,9 +629,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                 break;
 
             case CREATE:
-                if (yamls.containsKey(id)) {
-                    yamls.remove(id);
-                }
+                yamls.remove(id);
                 yamlConfiguration = new YamlConfiguration();
                 yamls.put(id.toUpperCase(), yamlConfiguration);
                 break;
@@ -663,16 +711,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
             return;
         }
 
-        // YAML tag requires name context and type context.
-        if ((!event.hasNameContext() || !(event.hasTypeContext() || attribute.getAttribute(2).equalsIgnoreCase("to_json")))
-                && !attribute.hasAlternative()) {
-            Debug.echoError("YAML tag '" + event.raw_tag + "' is missing required context. Tag replacement aborted.");
-            return;
-        }
-
-        // Set id (name context) and path (type context)
-        String id = event.getNameContext().toUpperCase();
-        String path = event.getTypeContext();
+        String id = attribute.getContext(1).toUpperCase();
 
         // Check if there is a yaml file loaded with the specified id
         if (!yamls.containsKey(id)) {
@@ -697,8 +736,8 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // Returns true if the file has the specified path.
         // Otherwise, returns false.
         // -->
-        if (attribute.startsWith("contains")) {
-            event.setReplaced(new ElementTag(getYaml(id).contains(path))
+        if (attribute.startsWith("contains") && attribute.hasContext(1)) {
+            event.setReplaced(new ElementTag(getYaml(id).contains(attribute.getContext(1)))
                     .getAttribute(attribute.fulfill(1)));
             return;
         }
@@ -709,8 +748,8 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // @description
         // Returns true if the specified path results in a list.
         // -->
-        if (attribute.startsWith("is_list")) {
-            event.setReplaced(new ElementTag(getYaml(id).isList(path))
+        if (attribute.startsWith("is_list") && attribute.hasContext(1)) {
+            event.setReplaced(new ElementTag(getYaml(id).isList(attribute.getContext(1)))
                     .getAttribute(attribute.fulfill(1)));
             return;
         }
@@ -722,28 +761,27 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // Returns the value of the key at the path.
         // If the key is a list, returns a ListTag instead.
         // -->
-        if (attribute.startsWith("read")) {
-            attribute.fulfill(1);
+        if (attribute.startsWith("read") && attribute.hasContext(1)) {
 
-            if (getYaml(id).isList(path)) {
-                List<String> value = getYaml(id).getStringList(path);
+            if (getYaml(id).isList(attribute.getContext(1))) {
+                List<String> value = getYaml(id).getStringList(attribute.getContext(1));
                 if (value == null) {
                     // If value is null, the key at the specified path didn't exist.
                     return;
                 }
                 else {
-                    event.setReplaced(new ListTag(value).getAttribute(attribute));
+                    event.setReplaced(new ListTag(value).getAttribute(attribute.fulfill(1)));
                     return;
                 }
             }
             else {
-                String value = getYaml(id).getString(path);
+                String value = getYaml(id).getString(attribute.getContext(1));
                 if (value == null) {
                     // If value is null, the key at the specified path didn't exist.
                     return;
                 }
                 else {
-                    event.setReplaced(new ElementTag(value).getAttribute(attribute));
+                    event.setReplaced(new ElementTag(value).getAttribute(attribute.fulfill(1)));
                     return;
                 }
             }
@@ -755,8 +793,9 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // @description
         // Returns a ListTag of all the keys at the path and all subpaths.
         // -->
-        if (attribute.startsWith("list_deep_keys")) {
+        if (attribute.startsWith("list_deep_keys") && attribute.hasContext(1)) {
             Set<StringHolder> keys;
+            String path = attribute.getContext(1);
             if (path != null && path.length() > 0) {
                 YamlConfiguration section = getYaml(id).getConfigurationSection(path);
                 if (section == null) {
@@ -783,8 +822,9 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // @description
         // Returns a ListTag of all the keys at the path.
         // -->
-        if (attribute.startsWith("list_keys")) {
+        if (attribute.startsWith("list_keys") && attribute.hasContext(1)) {
             Set<StringHolder> keys;
+            String path = attribute.getContext(1);
             if (path != null && path.length() > 0) {
                 YamlConfiguration section = getYaml(id).getConfigurationSection(path);
                 if (section == null) {

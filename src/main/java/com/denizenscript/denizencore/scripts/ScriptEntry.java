@@ -100,6 +100,10 @@ public class ScriptEntry implements Cloneable, Debuggable {
         return internal.bracedSet;
     }
 
+    public TagContext getContext() {
+        return DenizenCore.getImplementation().getTagContext(this);
+    }
+
     public void setBracedSet(List<BracedCommand.BracedData> set) {
         internal.bracedSet = set;
     }
@@ -143,7 +147,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
     public List<Object> getInsideList() {
         return internal.insideList;
     }
-
 
     /**
      * Get a hot, fresh, script entry, ready for execution! Just supply a valid command,
@@ -323,7 +326,7 @@ public class ScriptEntry implements Cloneable, Debuggable {
             processed_arguments = new ArrayList<>();
         }
         if (internal.actualCommand != null) {
-            if (internal.actualCommand.getOptions().REQUIRED_ARGS > args.size()) {
+            if (internal.actualCommand.getOptions().requiredArgs > args.size()) {
                 broken = true;
             }
             if (internal.actualCommand instanceof BracedCommand) {
@@ -350,7 +353,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
         objects.put(CoreUtilities.toLowerCase(key), object);
         return this;
     }
-
 
     /**
      * If the scriptEntry lacks the object corresponding to the
@@ -461,7 +463,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
         setSendingQueue(entry.getResidingQueue());
     }
 
-
     //////////////////
     // SCRIPTENTRY CONTEXT
     //////////////
@@ -469,7 +470,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
     public Map<String, Object> getObjects() {
         return objects;
     }
-
 
     public Object getObject(String key) {
         try {
@@ -514,7 +514,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
         }
     }
 
-
     public boolean hasObject(String key) {
         return objects.containsKey(key);
     }
@@ -527,17 +526,14 @@ public class ScriptEntry implements Cloneable, Debuggable {
         return internal.script;
     }
 
-
     public ScriptEntry setScript(String scriptName) {
         internal.script = ScriptTag.valueOf(scriptName);
         return this;
     }
 
-
     public ScriptQueue getResidingQueue() {
         return queue;
     }
-
 
     public void setSendingQueue(ScriptQueue scriptQueue) {
         queue = scriptQueue;
@@ -547,13 +543,11 @@ public class ScriptEntry implements Cloneable, Debuggable {
     // TimedQueue FEATURES
     /////////
 
-
     public boolean forceInstant = false;
 
     public boolean isInstant() {
         return internal.instant || forceInstant;
     }
-
 
     public ScriptEntry setInstant(boolean instant) {
         forceInstant = instant;
@@ -565,7 +559,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
     public boolean shouldWaitFor() {
         return internal.waitfor && !isFinished;
     }
-
 
     public ScriptEntry setFinished(boolean finished) {
         isFinished = finished;

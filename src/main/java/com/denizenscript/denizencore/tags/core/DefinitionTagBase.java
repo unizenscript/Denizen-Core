@@ -19,9 +19,8 @@ public class DefinitionTagBase {
             public void run(ReplaceableTagEvent event) {
                 definitionTag(event);
             }
-        }, "definition", "def", "d", "");
+        }, "def", "definition", "d", "");
     }
-
 
     //////////
     //  ReplaceableTagEvent handler
@@ -49,7 +48,6 @@ public class DefinitionTagBase {
         // Returns a definition from the current queue.
         // The object will be returned as the most-valid type based on the input.
         // -->
-        // Get the definition from the name input
         String defName = event.getNameContext();
 
         DefinitionProvider definitionProvider = event.getContext().definitionProvider;
@@ -77,7 +75,6 @@ public class DefinitionTagBase {
             return;
         }
 
-        // No invalid definitions!
         if (def == null) {
             if (!event.hasAlternative()) {
                 Debug.echoError("Invalid definition name '" + defName + "'.");
@@ -88,5 +85,4 @@ public class DefinitionTagBase {
         event.setReplacedObject(CoreUtilities.autoAttribTyped(def, atttribute));
     }
 }
-
 

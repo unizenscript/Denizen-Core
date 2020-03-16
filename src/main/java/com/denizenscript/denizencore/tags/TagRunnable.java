@@ -5,7 +5,9 @@ import com.denizenscript.denizencore.utilities.debugging.Debug;
 
 public abstract class TagRunnable implements Cloneable {
 
-    public static abstract class ObjectForm<T extends ObjectTag> implements Cloneable {
+    // Upstream (DenizenScript) removed this class. Added back for basic compatibility.
+    @Deprecated
+    public static abstract class ObjectForm<T extends ObjectTag> implements ObjectInterface<T>, Cloneable {
 
         @Override
         public ObjectForm<T> clone() {
@@ -19,8 +21,12 @@ public abstract class TagRunnable implements Cloneable {
         }
 
         public String name = null;
+    }
 
-        public abstract ObjectTag run(Attribute attribute, T object);
+    @FunctionalInterface
+    public interface ObjectInterface<T extends ObjectTag> {
+
+        ObjectTag run(Attribute attribute, T object);
     }
 
     public static abstract class RootForm implements Cloneable {

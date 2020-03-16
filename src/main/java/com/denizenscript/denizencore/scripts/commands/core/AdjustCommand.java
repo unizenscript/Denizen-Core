@@ -13,7 +13,6 @@ import com.denizenscript.denizencore.tags.core.UtilTagBase;
 import java.util.HashMap;
 import java.util.function.Consumer;
 
-
 public class AdjustCommand extends AbstractCommand {
 
     // <--[command]
@@ -22,7 +21,7 @@ public class AdjustCommand extends AbstractCommand {
     // @Required 2
     // @Short Adjusts an object's mechanism.
     // @Group core
-    // @Video /denizen/vids/Properties%20and%20Mechanisms
+    // @Guide https://guide.denizenscript.com/guides/basics/mechanisms.html
     //
     // @Description
     // Many object tag types contains options and properties that need to be adjusted. Denizen employs a mechanism
@@ -39,11 +38,11 @@ public class AdjustCommand extends AbstractCommand {
     //
     // @Usage
     // Use to set a custom display name on an entity.
-    // - adjust e@1000 'custom_name:ANGRY!'
+    // - adjust <[some_entity]> custom_name:ANGRY!
     //
     // @Usage
     // Use to set the skin of every online player.
-    // - adjust <server.list_online_players> skin:mcmonkey4eva
+    // - adjust <server.list_online_players> skin:Notch
     //
     // @Usage
     // Use to modify an item held in a definition.
@@ -61,7 +60,7 @@ public class AdjustCommand extends AbstractCommand {
                 }
                 else if (arg.object instanceof ElementTag) {
                     // Special parse to avoid prefixing issues
-                    scriptEntry.addObject("object", ListTag.valueOf(arg.raw_value));
+                    scriptEntry.addObject("object", ListTag.valueOf(arg.raw_value, scriptEntry.getContext()));
                 }
                 else {
                     scriptEntry.addObject("object", arg.asType(ListTag.class));
@@ -145,7 +144,6 @@ public class AdjustCommand extends AbstractCommand {
         ((Adjustable) object).safeAdjust(mechanism);
         return object;
     }
-
 
     @Override
     public void execute(ScriptEntry scriptEntry) {
