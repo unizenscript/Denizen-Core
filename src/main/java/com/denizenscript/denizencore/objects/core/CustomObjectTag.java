@@ -5,6 +5,7 @@ import com.denizenscript.denizencore.scripts.ScriptRegistry;
 import com.denizenscript.denizencore.scripts.containers.ScriptContainer;
 import com.denizenscript.denizencore.scripts.containers.core.CustomScriptContainer;
 import com.denizenscript.denizencore.tags.ObjectTagProcessor;
+import com.denizenscript.denizencore.tags.core.EscapeTagBase;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.DenizenCore;
@@ -26,14 +27,9 @@ public class CustomObjectTag implements ObjectTag, Adjustable {
     // Usage of these should generally be avoided, as they can be considered 'over-engineering'...
     // That is, using a very complicated solution to solve a problem that can be solved much more simply.
     //
-    // -->
-
-    // <--[language]
-    // @name custom@
-    // @group Object Fetcher System
-    // @description
-    // custom@ refers to the 'object identifier' of a Custom Object. The 'custom@' is notation for Denizen's Object
-    // Fetcher. The constructor for an Custom Object is the name of the custom script, with any relevant properties specified.
+    // These use the object notation "custom@".
+    // The identity format for custom objects is the script name, followed by property syntax listing all fields with their values.
+    //
     // -->
 
     @Fetchable("custom")
@@ -42,8 +38,7 @@ public class CustomObjectTag implements ObjectTag, Adjustable {
 
         ///////
         // Handle objects with properties through the object fetcher
-        m = ObjectFetcher.DESCRIBED_PATTERN.matcher(string);
-        if (m.matches()) {
+        if (ObjectFetcher.isObjectWithProperties(string)) {
             return ObjectFetcher.getObjectFrom(CustomObjectTag.class, string, context);
         }
 
@@ -95,7 +90,7 @@ public class CustomObjectTag implements ObjectTag, Adjustable {
     public String identify() {
         StringBuilder outp = new StringBuilder();
         for (Map.Entry<String, ObjectTag> var : vars.entrySet()) {
-            outp.append(var.getKey()).append("=").append(var.getValue().toString().replace(';', (char) 0x2011)).append(";");
+            outp.append(var.getKey()).append("=").append(EscapeTagBase.escape(var.getValue().toString())).append(";");
         }
         return "custom@" + container.getName() + "[" + (outp.length() > 0 ? outp.substring(0, outp.length() - 1) : "") + "]";
     }

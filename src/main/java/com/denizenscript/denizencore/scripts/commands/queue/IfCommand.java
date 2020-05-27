@@ -8,7 +8,6 @@ import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.objects.ArgumentHelper;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.scripts.commands.BracedCommand;
-import com.denizenscript.denizencore.scripts.commands.CommandExecuter;
 import com.denizenscript.denizencore.tags.TagManager;
 
 import java.util.ArrayList;
@@ -16,10 +15,18 @@ import java.util.List;
 
 public class IfCommand extends BracedCommand {
 
+    public IfCommand() {
+        setName("if");
+        setSyntax("if [<value>] (!)(<operator> <value>) (&&/|| ...) [<commands>]");
+        setRequiredArguments(1, -1);
+        setParseArgs(false);
+    }
+
     // <--[command]
     // @Name If
     // @Syntax if [<value>] (!)(<operator> <value>) (&&/|| ...) [<commands>]
     // @Required 1
+    // @Maximum -1
     // @Short Compares values, and runs a subset of commands if they match.
     // @Group queue
     // @Guide https://guide.denizenscript.com/guides/basics/if-command.html
@@ -76,23 +83,7 @@ public class IfCommand extends BracedCommand {
     // -->
 
     @Override
-    public void onEnable() {
-        setBraced();
-        setParseArgs(false);
-    }
-
-    @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
-
-        boolean in_subcommand = false;
-
-        boolean in_elsecommand = false;
-
-        List<String> subcommand = new ArrayList<>();
-
-        List<String> elsecommand = new ArrayList<>();
-
-        List<String> comparisons = new ArrayList<>();
 
         boolean has_brace = scriptEntry.getInsideList() != null;
         if (has_brace) {
@@ -111,10 +102,6 @@ public class IfCommand extends BracedCommand {
                 if (nextEntry.getInsideList() == null) {
                     Debug.echoError(scriptEntry.getResidingQueue(), "Upcoming else command is mis-formatted!");
                     break;
-                }
-                if (nextEntry.internal.hasOldDefs) {
-                    nextEntry.generateAHArgs();
-                    CommandExecuter.handleDefs(nextEntry, false);
                 }
                 scriptEntry.getResidingQueue().script_entries.remove(0);
                 BracedData elseRef = getBracedCommands(nextEntry).get(0);
@@ -141,12 +128,15 @@ public class IfCommand extends BracedCommand {
             }
         }
 
-        // Interpret arguments
+        boolean in_subcommand = false;
+        boolean in_elsecommand = false;
+        List<String> subcommand = new ArrayList<>();
+        List<String> elsecommand = new ArrayList<>();
+        List<String> comparisons = new ArrayList<>();
         for (String arg : scriptEntry.getArguments()) {
             if (arg.equalsIgnoreCase("{")) {
                 break;
             }
-
             if (!has_brace && in_subcommand && arg.equalsIgnoreCase("else")) {
                 in_elsecommand = true;
                 in_subcommand = false;
@@ -166,7 +156,6 @@ public class IfCommand extends BracedCommand {
                 comparisons.add(arg);
             }
         }
-
         if (!has_brace && in_elsecommand) {
             scriptEntry.addObject("elsecommand", elsecommand);
         }
@@ -226,40 +215,30 @@ public class IfCommand extends BracedCommand {
                         Debug.log("Trying: " + braceSet.key);
                     }
                     List<String> key = braceSet.args;
-                    boolean should_fire = false;
-                    int x = 0;
-                    if (key.size() > x && key.get(x).equalsIgnoreCase("else")) {
-                        x++;
+                    if (key.isEmpty() || !key.get(0).equalsIgnoreCase("else")) {
+                        Debug.echoError("If command has argument '" + key.get(0) + "' which is unknown.");
+                        continue;
+                    }
+                    if (key.size() > 1) {
+                        if (!key.get(1).equalsIgnoreCase("if")) {
+                            Debug.echoError("Else command has argument '" + key.get(1) + "' which is unknown.");
+                            continue;
+                        }
+                        if (!new ArgComparer().compare(key.subList(2, key.size()), scriptEntry)) {
+                            continue;
+                        }
+                        Debug.echoDebug(scriptEntry, "<Y>If/else-if chain entry #" + (z + 1) + " passed, running block.");
                     }
                     else {
-                        Debug.echoError("If command has argument '" + key.get(x) + "' which is unknown.");
+                        Debug.echoDebug(scriptEntry, "<Y>No part of the if command passed, running ELSE block.");
                     }
-                    if (key.size() > x && key.get(x).equalsIgnoreCase("if")) {
-                        x++;
+                    scriptEntry.setInstant(true);
+                    List<ScriptEntry> bracedCommandsList = braceSet.value;
+                    for (int i = 0; i < bracedCommandsList.size(); i++) {
+                        bracedCommandsList.get(i).setInstant(true);
                     }
-                    else {
-                        should_fire = true;
-                    }
-                    if (!should_fire) {
-                        if (new ArgComparer().compare(key.subList(x, key.size()), scriptEntry)) {
-                            should_fire = true;
-                        }
-                    }
-                    if (should_fire) {
-                        if (key.size() == 1 && key.get(0).equals("else")) {
-                            Debug.echoDebug(scriptEntry, "<Y>No part of the if command passed, running ELSE block.");
-                        }
-                        else {
-                            Debug.echoDebug(scriptEntry, "<Y>If sub-command " + z + " passed, running block.");
-                        }
-                        scriptEntry.setInstant(true);
-                        List<ScriptEntry> bracedCommandsList = braceSet.value;
-                        for (int i = 0; i < bracedCommandsList.size(); i++) {
-                            bracedCommandsList.get(i).setInstant(true);
-                        }
-                        scriptEntry.getResidingQueue().injectEntries(bracedCommandsList, 0);
-                        return;
-                    }
+                    scriptEntry.getResidingQueue().injectEntries(bracedCommandsList, 0);
+                    return;
                 }
             }
         }
@@ -271,9 +250,9 @@ public class IfCommand extends BracedCommand {
             scriptEntry.setInstant(true);
             String cmd = subcommand.get(0);
             subcommand.remove(0);
-            ScriptEntry entry = new ScriptEntry(cmd, subcommand.toArray(new String[subcommand.size()]),
-                    scriptEntry.getScript() != null ? scriptEntry.getScript().getContainer() : null);
+            ScriptEntry entry = new ScriptEntry(cmd, subcommand.toArray(new String[0]), scriptEntry.getScript() != null ? scriptEntry.getScript().getContainer() : null);
             entry.entryData = scriptEntry.entryData.clone();
+            entry.updateContext();
             entry.setInstant(true);
             scriptEntry.getResidingQueue().injectEntry(entry, 0);
         }
@@ -313,29 +292,6 @@ public class IfCommand extends BracedCommand {
             public String toString() {
                 return negative ? "!" + value : value;
             }
-        }
-
-        public static boolean boolify(String arg) {
-            if (arg.startsWith("!")) {
-                return !arg.equalsIgnoreCase("!true");
-            }
-            return arg.equalsIgnoreCase("true");
-        }
-
-        public static boolean procBoolean(Object arg) {
-            if (arg instanceof String) {
-                return boolify((String) arg);
-            }
-            else if (arg instanceof ArgInternal) {
-                return ((ArgInternal) arg).boolify();
-            }
-            else if (arg instanceof ArgComparer) {
-                return ((ArgComparer) arg).compare();
-            }
-            else if (arg instanceof Boolean) {
-                return ((Boolean) arg);
-            }
-            return boolify(arg.toString());
         }
 
         public static String procString(Object arg) {
@@ -396,7 +352,7 @@ public class IfCommand extends BracedCommand {
                 toRet.negative = true;
                 arg = arg.substring(1);
             }
-            toRet.value = TagManager.tag(arg, DenizenCore.getImplementation().getTagContextFor(scriptEntry, false));
+            toRet.value = TagManager.tag(arg, DenizenCore.getImplementation().getTagContext(scriptEntry));
             return toRet;
         }
 
@@ -436,7 +392,7 @@ public class IfCommand extends BracedCommand {
             if (Debug.verbose) {
                 Debug.log("Comparing " + args);
             }
-            if (args.size() == 0) {
+            if (args.isEmpty()) {
                 if (Debug.verbose) {
                     Debug.log("Args.size == 0, return false");
                 }
@@ -451,10 +407,9 @@ public class IfCommand extends BracedCommand {
             for (int i = 0; i < args.size(); i++) {
                 String arg = procStringNoTag(args.get(i));
                 if (arg.equals("(") || arg.equals("!(")) {
-                    List subargs = new ArrayList();
+                    List subargs = new ArrayList(args.size());
                     int count = 0;
                     boolean found = false;
-                    boolean flip = false;
                     for (int x = i + 1; x < args.size(); x++) {
                         String xarg = procStringNoTag(args.get(x));
                         if (xarg.equals("(") || xarg.equals("!(")) {
@@ -600,6 +555,7 @@ public class IfCommand extends BracedCommand {
                 arg = "AND";
             }
             Comparable comparable = new Comparable();
+            comparable.context = scriptEntry.context;
             if (negative) {
                 comparable.logic = Comparable.Logic.NEGATIVE;
             }
@@ -613,6 +569,10 @@ public class IfCommand extends BracedCommand {
             }
             catch (IllegalArgumentException ex) {
                 Debug.echoError(scriptEntry == null ? null : scriptEntry.getResidingQueue(), "If command syntax invalid - possibly wrong number of arguments (check for stray spaces)? IllegalArgumentException: " + ex.getMessage());
+                if (Debug.verbose) {
+                    Debug.echoError("Was comparing " + arg + " with " + args.get(0) + " and " + args.get(2));
+                    Debug.echoError(ex);
+                }
                 return false;
             }
         }

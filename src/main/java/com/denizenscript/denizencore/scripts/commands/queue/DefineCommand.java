@@ -19,19 +19,25 @@ import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
  */
 public class DefineCommand extends AbstractCommand {
 
+    public DefineCommand() {
+        setName("define");
+        setSyntax("define [<id>](:<action>)[:<value>]");
+        setRequiredArguments(1, 2);
+    }
+
     // <--[command]
     // @Name Define
     // @Syntax define [<id>](:<action>)[:<value>]
     // @Required 1
+    // @Maximum 2
     // @Short Creates a temporary variable inside a script queue.
     // @Group queue
     // @Guide https://guide.denizenscript.com/guides/basics/definitions.html
     //
     // @Description
-    // Definitions are queue-level 'variables' that can be used throughout a script, once defined,
-    // by using the <[<id>]> tag. Definitions are only valid on the current queue and are
-    // not transferred to any new queues constructed within the script, such as by a 'run' command, without explicitly
-    // specifying to do so.
+    // Definitions are queue-level 'variables' that can be used throughout a script, once defined, by using the <[<id>]> tag.
+    // Definitions are only valid on the current queue and are not transferred to any new queues constructed within the script,
+    // such as by a 'run' command, without explicitly specifying to do so.
     //
     // Definitions are lighter and faster than creating a temporary flag.
     // Definitions are also automatically removed when the queue is completed, so there is no worry for leaving unused data hanging around.
@@ -46,13 +52,13 @@ public class DefineCommand extends AbstractCommand {
     // @Usage
     // Use to make complex tags look less complex, and scripts more readable.
     // - narrate 'You invoke your power of notice...'
-    // - define range:<player.flag[range_level].mul[3]>
-    // - define blocks:<player.flag[noticeable_blocks]>
+    // - define range <player.flag[range_level].mul[3]>
+    // - define blocks <player.flag[noticeable_blocks]>
     // - narrate '[NOTICE] You have noticed <player.location.find.blocks[<[blocks]>].within[<[range]>].size> blocks in the area that may be of interest.'
     //
     // @Usage
     // Use to validate a player input to a command script, and then output the found player's name.
-    // - define target:<server.match_player[<context.args.get[1]>]||null>
+    // - define target <server.match_player[<context.args.get[1]>]||null>
     // - if <[target]> == null:
     //   - narrate '<red>Unknown player target.'
     //   - stop
@@ -60,7 +66,7 @@ public class DefineCommand extends AbstractCommand {
     //
     // @Usage
     // Use to keep the value of a replaceable tag that you might use many times within a single script.
-    // - define arg1:<context.args.get[1]>
+    // - define arg1 <context.args.get[1]>
     // - if <[arg1]> == hello:
     //   - narrate 'Hello!'
     // - else if <[arg1]> == goodbye:
@@ -93,7 +99,7 @@ public class DefineCommand extends AbstractCommand {
         for (Argument arg : scriptEntry.getProcessedArgs()) {
 
             if (!scriptEntry.hasObject("definition")) {
-                if (arg.raw_value.contains(":")) {
+                if (CoreUtilities.contains(arg.raw_value, ':')) {
                     DefinitionActionProvider provider = new DefinitionActionProvider();
                     provider.queue = scriptEntry.getResidingQueue();
                     scriptEntry.addObject("action", DataActionHelper.parse(provider, arg.raw_value));
@@ -138,6 +144,6 @@ public class DefineCommand extends AbstractCommand {
             action.execute(scriptEntry.getContext());
             return;
         }
-        scriptEntry.getResidingQueue().addDefinition(definition.asString(), value);
+        scriptEntry.getResidingQueue().addDefinition(definition.asString(), value.duplicate());
     }
 }

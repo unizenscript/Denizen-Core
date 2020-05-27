@@ -4,7 +4,6 @@ import com.denizenscript.denizencore.events.core.*;
 import com.denizenscript.denizencore.scripts.containers.core.WorldScriptContainer;
 import com.denizenscript.denizencore.scripts.queues.ContextSource;
 import com.denizenscript.denizencore.objects.core.ElementTag;
-import com.denizenscript.denizencore.objects.core.ListTag;
 import com.denizenscript.denizencore.objects.ObjectTag;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.scripts.ScriptEntryData;
@@ -12,6 +11,7 @@ import com.denizenscript.denizencore.scripts.ScriptEntrySet;
 import com.denizenscript.denizencore.scripts.containers.ScriptContainer;
 import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
 import com.denizenscript.denizencore.scripts.queues.core.InstantQueue;
+import com.denizenscript.denizencore.tags.TagContext;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.YamlConfiguration;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
@@ -45,7 +45,6 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     }
 
     public static void registerScriptEvent(ScriptEvent event) {
-        event.reset();
         events.add(event);
         eventLookup.put(CoreUtilities.toLowerCase(event.getName()), event);
     }
@@ -78,6 +77,8 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         public String[] eventArgsLower;
         public String[] rawEventArgs;
         public List<ScriptEvent> matches = new ArrayList<>();
+        public TagContext context;
+        public boolean fireAfter = false;
 
         public String rawEventArgAt(int index) {
             return index < rawEventArgs.length ? rawEventArgs[index] : "";
@@ -134,6 +135,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             this.event = event;
             rawEventArgs = CoreUtilities.split(event, ' ').toArray(new String[0]);
             this.container = container;
+            context = DenizenCore.getImplementation().getTagContext(container);
             List<String> eventLabel = new ArrayList<>();
             for (String possible : CoreUtilities.split(event, ' ').toArray(new String[0])) {
                 List<String> split = CoreUtilities.split(possible, ':', 2);
@@ -157,6 +159,23 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             return container.getName() + ".events.on " + event;
         }
     }
+    // <--[language]
+    // @name Script Event After vs On
+    // @group Script Events
+    // @description
+    // Modern ScriptEvents let you choose between "on" and "after".
+    // An "on" event looks like "on player breaks block:" while an "after" event looks like "after player breaks block:".
+    //
+    // An "on" event fires *before* the event actually happens in the world. This means some relevant data won't be updated
+    // (for example, "<context.location.material>" would still show the block type that is going to be broken)
+    // and the result of the event can be changed (eg the event can be cancelled to stop it from actually going through).
+    //
+    // An "after" event, as the name implies, fires *after* the event actually happens. This means data will be already updated to the new state
+    // (so "<context.location.material>" would now show air) but could potentially contain an arbitrary new state from unrelated changes
+    // (for example "<context.location.material>" might now show a different block type, or the original one, if the event was changed,
+    // or another thing happened right after the event but before the 'after' event ran).
+    // This also means you cannot affect the outcome of the event at all (you can't cancel it or anything else - the "determine" command does nothing).
+    // -->
 
     public static void reload() {
         if (Debug.showLoading) {
@@ -175,7 +194,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
                 if (evt == null || evt.str == null) {
                     Debug.echoError("Missing or invalid events block for " + container.getName());
                 }
-                else if (evt.str.contains("@")) {
+                else if (CoreUtilities.contains(evt.str, '@')) {
                     Debug.echoError("Script '" + container.getName() + "' has event '" + evt.str.replace("@", "<R>@<W>")
                             + "' which contains object notation, which is deprecated for use in world events. Please remove it.");
                 }
@@ -188,8 +207,22 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
                 continue;
             }
             for (StringHolder evt1 : config.getKeys(false)) {
-                String evt = evt1.str.substring("on ".length()).replace("&dot", ".").replace("&amp", "&");
+                String evt;
+                boolean after = false;
+                if (evt1.low.startsWith("on ")) {
+                    evt = evt1.str.substring("on ".length());
+                }
+                else if (evt1.low.startsWith("after ")) {
+                    evt = evt1.str.substring("after ".length());
+                    after = true;
+                }
+                else {
+                    Debug.echoError("Script path '" + evt1.str + "' is invalid (missing 'on' or 'after').");
+                    continue;
+                }
+                evt = evt.replace("&dot", ".").replace("&amp", "&");
                 ScriptPath path = new ScriptPath(container, evt, evt1.str);
+                path.fireAfter = after;
                 if (path.set == null) {
                     Debug.echoError("Script path '" + path + "' is invalid (empty or misconfigured).");
                     continue;
@@ -309,26 +342,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     public void destroy() {
     }
 
-    @Deprecated
-    public static boolean checkSwitch(String event, String switcher, String value) {
-        for (String possible : CoreUtilities.split(event, ' ')) {
-            List<String> split = CoreUtilities.split(possible, ':', 2);
-            if (split.get(0).equalsIgnoreCase(switcher) && split.size() > 1 && !split.get(1).equalsIgnoreCase(value)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Deprecated
-    public static String getSwitch(String event, String switcher) {
-        for (String possible : CoreUtilities.split(event, ' ')) {
-            List<String> split = CoreUtilities.split(possible, ':', 2);
-            if (split.get(0).equalsIgnoreCase(switcher) && split.size() > 1) {
-                return split.get(1);
-            }
-        }
-        return null;
+    public void cancellationChanged() {
     }
 
     public static HashSet<String> defaultDeterminations = new HashSet<>(Arrays.asList("cancelled", "cancelled:true", "cancelled:false"));
@@ -346,16 +360,19 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         if (low.equals("cancelled")) {
             Debug.echoDebug(path.container, "Event cancelled!");
             cancelled = true;
+            cancellationChanged();
             return true;
         }
         else if (low.equals("cancelled:true")) {
             Debug.echoDebug(path.container, "Event cancelled!");
             cancelled = true;
+            cancellationChanged();
             return true;
         }
         else if (low.equals("cancelled:false")) {
             Debug.echoDebug(path.container, "Event uncancelled!");
             cancelled = false;
+            cancellationChanged();
             return true;
         }
         else {
@@ -364,101 +381,65 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         }
     }
 
-    public HashMap<String, ObjectTag> getContext() { // TODO: Delete
-        return new HashMap<>();
-    }
-
     public ScriptEntryData getScriptEntryData() {
         return DenizenCore.getImplementation().getEmptyScriptEntryData();
     }
 
     public boolean couldMatch(ScriptPath path) {
-        return couldMatch(path.container, path.event);
-    }
-
-    public boolean couldMatch(ScriptContainer script, String event) {
-        return false;
+        throw new UnsupportedOperationException("CouldMatch not implemented for event '" + getName() + "'! Report this error to the Denizen developers!");
     }
 
     public boolean matches(ScriptPath path) {
-        return matches(path.container, path.event);
-    }
-
-    public boolean matches(ScriptContainer script, String event) {
         throw new UnsupportedOperationException("Matches not implemented for event '" + getName() + "'! Report this error to the Denizen developers!");
     }
 
     public abstract String getName();
 
-    public void reset() {
-        cancelled = false;
-    }
-
-    Runnable resetRunnable = new Runnable() {
-        @Override
-        public void run() {
-            reset();
-        }
-    };
-
     public void fire() {
+        ScriptEvent copy = clone();
         stats.fires++;
         for (ScriptPath path : eventPaths) {
             try {
-                if (matchesScript(this, path)) {
-                    run(path);
+                if (matchesScript(copy, path)) {
+                    if (path.fireAfter) {
+                        final ScriptPath finalPath = path;
+                        DenizenCore.schedule(new OneTimeSchedulable(() -> copy.run(finalPath), 0.01f));
+                    }
+                    else {
+                        copy.run(path);
+                    }
                 }
             }
             catch (Exception e) {
-                Debug.echoError("Handling script " + path.container.getName() + " path:" + path.event + ":::");
+                Debug.echoError("Matching script " + path.container.getName() + " event path:" + path.event + ":::");
                 Debug.echoError(e);
             }
-        }
-        if (cancelled) {
-            DenizenCore.schedule(new OneTimeSchedulable(resetRunnable, 0.01f));
         }
     }
 
     private String currentEvent;
 
     public void run(ScriptPath path) {
-        stats.scriptFires++;
-        HashMap<String, ObjectTag> context = getContext();
-        if (path.container.shouldDebug()) {
-            Debug.echoDebug(path.container, "<Y>Running script event '<A>" + getName() + "<Y>', event='<A>" + path.event + "<Y>'"
-                    + " for script '<A>" + path.container.getName() + "<Y>'");
-            for (Map.Entry<String, ObjectTag> obj : context.entrySet()) {
-                Debug.echoDebug(path.container, "<Y>Context '<A>" + obj.getKey() + "<Y>' = '<A>" + obj.getValue().identify() + "<Y>'");
+        try {
+            stats.scriptFires++;
+            if (path.container.shouldDebug()) {
+                Debug.echoDebug(path.container, "<Y>Running script event '<A>" + getName() + "<Y>', event='<A>" + path.event + "<Y>'"
+                        + " for script '<A>" + path.container.getName() + "<Y>'");
             }
-        }
-        List<ScriptEntry> entries = ScriptContainer.cleanDup(getScriptEntryData(), path.set);
-        ScriptQueue queue = new InstantQueue(path.container.getName()).addEntries(entries);
-        HashMap<String, ObjectTag> oldStyleContext = getContext();
-        currentEvent = path.event;
-        if (oldStyleContext.size() > 0) {
-            OldEventManager.OldEventContextSource oecs = new OldEventManager.OldEventContextSource();
-            oecs.contexts = oldStyleContext;
-            oecs.contexts.put("cancelled", new ElementTag(cancelled));
-            oecs.contexts.put("event_header", new ElementTag(currentEvent));
-            queue.setContextSource(oecs);
-        }
-        else {
-            queue.setContextSource(this.clone());
-        }
-        queue.start();
-        stats.nanoTimes += System.nanoTime() - queue.startTime;
-        ListTag outList = queue.determinations;
-        if (outList != null && !outList.isEmpty()) {
-            List<ObjectTag> determinations = outList.objectForms;
-            for (ObjectTag determination : determinations) {
-                applyDetermination(path, determination);
+            List<ScriptEntry> entries = ScriptContainer.cleanDup(getScriptEntryData(), path.set);
+            ScriptQueue queue = new InstantQueue(path.container.getName()).addEntries(entries);
+            currentEvent = path.event;
+            queue.setContextSource(this);
+            if (!path.fireAfter) {
+                queue.determinationTarget = (o) -> applyDetermination(path, o);
             }
+            queue.start();
+            stats.nanoTimes += System.nanoTime() - queue.startTime;
         }
-    }
-
-    @Override
-    public boolean getShouldCache() {
-        return false;
+        catch (Exception e) {
+            Debug.echoError("Handling script " + path.container.getName() + " path:" + path.event + ":::");
+            Debug.echoError(e);
+        }
     }
 
     // <--[language]
@@ -550,7 +531,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     }
 
     public static boolean isRegexMatchable(String input) {
-        return input.startsWith("regex:") || input.contains("|") || input.contains("*");
+        return input.startsWith("regex:") || CoreUtilities.contains(input, '|') || CoreUtilities.contains(input, '*');
     }
 
     public static Pattern regexHandle(String input) {
@@ -562,14 +543,14 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         if (input.startsWith("regex:")) {
             output = input.substring("regex:".length());
         }
-        else if (input.contains("|")) {
+        else if (CoreUtilities.contains(input, '|')) {
             String[] split = input.split("\\|");
             for (int i = 0; i < split.length; i++) {
                 split[i] = quotify(split[i]);
             }
             output = String.join("|", split);
         }
-        else if (input.contains("*")) {
+        else if (CoreUtilities.contains(input, '*')) {
             output = quotify(input);
         }
         else {

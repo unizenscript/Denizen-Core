@@ -2,7 +2,6 @@ package com.denizenscript.denizencore.tags;
 
 import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.ElementTag;
-import com.denizenscript.denizencore.objects.core.ListTag;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
 import com.denizenscript.denizencore.tags.core.*;
@@ -10,10 +9,6 @@ import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.DenizenCore;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,40 +18,29 @@ import java.util.regex.Pattern;
 
 public class TagManager {
 
-    public TagManager() {
-
-    }
-
     public void registerCoreTags() {
         // Objects
         new DurationTagBase();
         new ElementTagBase();
         new ListTagBase();
+        new MapTagBase();
         new QueueTagBase();
         new ScriptTagBase();
+        new TimeTagBase();
 
         // Utilities
         new ContextTagBase();
         new DefinitionTagBase();
         new EscapeTagBase();
+        new ListSingleTagBase();
         new ProcedureScriptTagBase();
         new TernaryTagBase();
         new UtilTagBase();
     }
 
-    @Target(ElementType.METHOD)
-    @Retention(RetentionPolicy.RUNTIME)
-    public @interface TagEvents {
-    }
-
     public static HashMap<String, TagRunnable.RootForm> handlers = new HashMap<>();
 
     public static HashSet<String> properTagBases = new HashSet<>();
-
-    @FunctionalInterface
-    public interface OldTagRunner {
-        void run(ReplaceableTagEvent event);
-    }
 
     public static void registerTagHandler(TagRunnable.RootForm run, String... names) {
         properTagBases.add(names[0]);
@@ -75,13 +59,9 @@ public class TagManager {
 
     public static void fireEvent(ReplaceableTagEvent event) {
         if (Debug.verbose) {
-            Debug.log("Tag fire: " + event.raw_tag + ", " + event.isInstant() + ", " + event.getAttributes().attributes[0].rawKey.contains("@") + ", " + event.hasAlternative() + "...");
+            Debug.log("Tag fire: " + event.raw_tag + ", " + event.getAttributes().attributes[0].rawKey.contains("@") + ", " + event.hasAlternative() + "...");
         }
-        if (event.getAttributes().attributes[0].rawKey.contains("@")) {
-            fetchObject(event);
-            return;
-        }
-        TagRunnable.RootForm handler = handlers.get(event.getName());
+        TagRunnable.RootForm handler = event.mainRef.baseHandler;
         if (handler != null) {
             try {
                 if (Debug.verbose) {
@@ -109,124 +89,6 @@ public class TagManager {
         }
     }
 
-    // INTERNAL MAPPING NOTE:
-    // 0x00: Null, reserved for special handlers
-    // 0x01: <
-    // 0x02: >
-    // 0x04: Reserved for impl
-    // 0x05: |
-    // 0x2011: ;
-
-    /**
-     * Cleans escaped symbols generated within Tag Manager so that
-     * they can be parsed now.
-     *
-     * @param input the potentially escaped input string.
-     * @return the cleaned output string.
-     */
-    public static String cleanOutput(String input) {
-        if (input == null) {
-            return null;
-        }
-        char[] data = input.toCharArray();
-        for (int i = 0; i < data.length; i++) {
-            switch (data[i]) {
-                case 0x01:
-                    data[i] = '<';
-                    break;
-                case 0x02:
-                    data[i] = '>';
-                    break;
-                case 0x07:
-                    data[i] = '[';
-                    break;
-                case 0x09:
-                    data[i] = ']';
-                    break;
-                case ListTag.internal_escape_char:
-                    data[i] = '|';
-                    break;
-                default:
-                    break;
-            }
-        }
-        return new String(data);
-    }
-
-    /**
-     * Cleans any potential internal escape characters (secret characters
-     * used to hold the place of symbols that might get parsed weirdly
-     * like > or | ) back into their proper form. Use this function
-     * when outputting information that is going to be read by a
-     * person.
-     *
-     * @param input the potentially escaped input string.
-     * @return the cleaned output string.
-     */
-    public static String cleanOutputFully(String input) {
-        if (input == null) {
-            return null;
-        }
-        char[] data = input.toCharArray();
-        for (int i = 0; i < data.length; i++) {
-            switch (data[i]) {
-                case 0x01:
-                    data[i] = '<';
-                    break;
-                case 0x02:
-                    data[i] = '>';
-                    break;
-                case 0x2011:
-                    data[i] = ';';
-                    break;
-                case 0x07:
-                    data[i] = '[';
-                    break;
-                case 0x09:
-                    data[i] = ']';
-                    break;
-                case ListTag.internal_escape_char:
-                    data[i] = '|';
-                    break;
-                case 0x00A0:
-                    data[i] = ' ';
-                    break;
-                default:
-                    break;
-            }
-        }
-        return new String(data);
-    }
-
-    public static String escapeOutput(String input) {
-        if (input == null) {
-            return null;
-        }
-        char[] data = input.toCharArray();
-        for (int i = 0; i < data.length; i++) {
-            switch (data[i]) {
-                case '<':
-                    data[i] = 0x01;
-                    break;
-                case '>':
-                    data[i] = 0x02;
-                    break;
-                case '[':
-                    data[i] = 0x07;
-                    break;
-                case ']':
-                    data[i] = 0x09;
-                    break;
-                case '|':
-                    data[i] = ListTag.internal_escape_char;
-                    break;
-                default:
-                    break;
-            }
-        }
-        return new String(data);
-    }
-
     public static void fetchObject(ReplaceableTagEvent event) {
         String object_type = CoreUtilities.toLowerCase(CoreUtilities.split(event.getAttributes().attributes[0].rawKey, '@').get(0));
         Class object_class = ObjectFetcher.getObjectClass(object_type);
@@ -246,14 +108,13 @@ public class TagManager {
                     : event.getAttributes().attributes[0].rawKey;
             if (!ObjectFetcher.checkMatch(object_class, tagObjectFull)) {
                 if (!event.hasAlternative()) {
-                    Debug.echoDebug(event.getScriptEntry(), "Returning null. '" + event.getAttributes().attributes[0].rawKey
-                            + "' is an invalid " + object_class.getSimpleName() + ".");
+                    Debug.echoDebug(event.getScriptEntry(), "Returning null. '" + event.getAttributes().attributes[0].rawKey + "' is an invalid " + object_class.getSimpleName() + ".");
                     event.setReplaced("null");
                 }
                 return;
             }
 
-            arg = ObjectFetcher.getObjectFrom(object_class, tagObjectFull, DenizenCore.getImplementation().getTagContext(event.getScriptEntry()));
+            arg = ObjectFetcher.getObjectFrom(object_class, tagObjectFull, event.getContext());
 
             if (arg == null) {
                 if (!event.hasAlternative()) {
@@ -323,25 +184,21 @@ public class TagManager {
 
     public static String readSingleTag(String str, TagContext context) {
         ReplaceableTagEvent event = new ReplaceableTagEvent(str, context);
-        if (event.isInstant() != context.instant) {
-            return String.valueOf((char) 0x01) + str.replace('<', (char) 0x01).replace('>', (char) 0x02) + String.valueOf((char) 0x02);
-        }
-        return escapeOutput(readSingleTagObject(context, event).toString());
+        return readSingleTagObject(context, event).toString();
     }
 
     public static ObjectTag readSingleTagObject(ParseableTagPiece tag, TagContext context) {
-        if (tag.tagData.isInstant != context.instant) {
-            return new ElementTag("<" + tag.content + ">");
-        }
         ReplaceableTagEvent event = new ReplaceableTagEvent(tag.tagData, tag.content, context);
         return readSingleTagObject(context, event);
     }
+
+    public static boolean recentTagError = true;
 
     public static ObjectTag readSingleTagObject(TagContext context, ReplaceableTagEvent event) {
         // Call Event
         int tT = DenizenCore.getImplementation().getTagTimeout();
         if (Debug.verbose) {
-            Debug.log("Tag read: " + event.raw_tag + ", " + event.isInstant() + ", " + tT + "...");
+            Debug.log("Tag read: " + event.raw_tag + ", " + tT + "...");
         }
         if (tT <= 0 || isInTag || (!DenizenCore.getImplementation().shouldDebug(context) && !DenizenCore.getImplementation().tagTimeoutWhenSilent())) {
             fireEvent(event);
@@ -359,6 +216,7 @@ public class TagManager {
             ScriptQueue queue = context.entry != null ? context.entry.getResidingQueue() : null;
             String tagStr = "<" + event.toString() + ">";
             Debug.echoError(queue, "Tag " + tagStr + " is invalid!");
+            recentTagError = true;
             if (OBJECTTAG_CONFUSION_PATTERN.matcher(tagStr).matches()) {
                 Debug.echoError(queue, "'ObjectTag' notation is for documentation purposes, and not to be used literally."
                     + " An actual object must be inserted instead. If confused, join our Discord at https://discord.gg/Q6pZGSR to ask for help!");
@@ -386,7 +244,7 @@ public class TagManager {
 
         @Override
         public String toString() {
-            return "(" + isError + ", " + isTag + ", " + (isTag ? tagData.isInstant + ", " + tagData.rawTag : "") + ", " + content + "," + objResult + ")";
+            return "(" + isError + ", " + isTag + ", " + (isTag ? tagData.rawTag : "") + ", " + content + "," + objResult + ")";
         }
 
         public ParseableTagPiece duplicate() {
@@ -400,7 +258,7 @@ public class TagManager {
         }
     }
 
-    public static ObjectTag parseChainObject(List<ParseableTagPiece> pieces, TagContext context, boolean repush) {
+    public static ObjectTag parseChainObject(List<ParseableTagPiece> pieces, TagContext context) {
         if (Debug.verbose) {
             Debug.log("Tag parse chain: " + pieces + "...");
             try {
@@ -411,7 +269,7 @@ public class TagManager {
             }
         }
         if (pieces.size() < 2) {
-            if (pieces.size() == 0) {
+            if (pieces.isEmpty()) {
                 return new ElementTag("");
             }
             ParseableTagPiece pzero = pieces.get(0);
@@ -419,13 +277,7 @@ public class TagManager {
                 Debug.echoError(context.entry != null ? context.entry.getResidingQueue() : null, pzero.content);
             }
             else if (pzero.isTag) {
-                ObjectTag objt = readSingleTagObject(pzero, context);
-                if (repush && (!pzero.isTag || pzero.tagData.isInstant == context.instant)) {
-                    ParseableTagPiece piece = new ParseableTagPiece();
-                    piece.objResult = objt;
-                    pieces.set(0, piece);
-                }
-                return objt;
+                return readSingleTagObject(pzero, context);
             }
             else if (pzero.objResult != null) {
                 return pzero.objResult;
@@ -439,13 +291,7 @@ public class TagManager {
                 Debug.echoError(context.entry != null ? context.entry.getResidingQueue() : null, p.content);
             }
             else if (p.isTag) {
-                ObjectTag objt = readSingleTagObject(p, context);
-                if (repush && (!p.isTag || p.tagData.isInstant == context.instant)) {
-                    ParseableTagPiece piece = new ParseableTagPiece();
-                    piece.objResult = objt;
-                    pieces.set(i, piece);
-                }
-                helpy.append(objt.toString());
+                helpy.append(readSingleTagObject(p, context).toString());
             }
             else if (p.objResult != null) {
                 helpy.append(p.objResult.toString());
@@ -458,7 +304,7 @@ public class TagManager {
     }
 
     public static String tag(String arg, TagContext context) {
-        return cleanOutput(tagObject(arg, context).toString());
+        return tagObject(arg, context).toString();
     }
 
     public static List<ParseableTagPiece> dupChain(List<ParseableTagPiece> chain) {
@@ -469,20 +315,16 @@ public class TagManager {
         return newPieces;
     }
 
-    public static List<ParseableTagPiece> genChain(String arg, ScriptEntry entry) {
-        return genChain(arg, DenizenCore.getImplementation().getTagContext(entry));
-    }
-
     public static List<ParseableTagPiece> genChain(String arg, TagContext context) {
         if (arg == null) {
             return null;
         }
-        arg = cleanOutput(arg);
+        arg = arg;
         List<ParseableTagPiece> pieces = preCalced.get(arg);
         if (pieces != null) {
             return pieces;
         }
-        pieces = new ArrayList<>();
+        pieces = new ArrayList<>(1);
         if (arg.indexOf('>') == -1 || arg.length() < 3) {
             ParseableTagPiece txt = new ParseableTagPiece();
             txt.content = arg;
@@ -536,7 +378,7 @@ public class TagManager {
     }
 
     public static ObjectTag tagObject(String arg, TagContext context) {
-        return parseChainObject(genChain(arg, context), context, false);
+        return parseChainObject(genChain(arg, context), context);
     }
 
     public static int findColonNotTagNorSpace(String arg) {
@@ -590,98 +432,31 @@ public class TagManager {
         holder[0] = -1;
     }
 
-    public static List<ObjectTag> fillArgumentsObjects(List<String> args, TagContext context) {
+    public static void fillArgumentsObjects(List<ObjectTag> args, List<ScriptEntry.InternalArgument> pieceHelp, List<Argument> aHArgs, TagContext context, int[] targets) {
         if (Debug.verbose) {
-            Debug.log("Fill argument objects (old): " + args + ", " + context.instant + "...");
-        }
-        List<ObjectTag> filledArgs = new ArrayList<>();
-
-        int nested_level = 0;
-        if (args != null) {
-            for (String argument : args) {
-                // Check nested level to avoid filling tags prematurely.
-                if (argument.equals("{")) {
-                    nested_level++;
-                }
-                if (argument.equals("}")) {
-                    nested_level--;
-                }
-                // If this argument isn't nested, fill the tag.
-                if (nested_level < 1) {
-                    filledArgs.add(tagObject(argument, context));
-                }
-                else {
-                    filledArgs.add(new ElementTag(argument));
-                }
-            }
-        }
-        return filledArgs;
-    }
-
-    public static void fillArgumentsObjects(List<ObjectTag> args, List<String> strArgs, List<ScriptEntry.InternalArgument> pieceHelp, List<Argument> aHArgs, boolean repush, TagContext context, int[] targets) {
-        if (Debug.verbose) {
-            Debug.log("Fill argument objects: " + args + ", " + context.instant + ", " + targets.length + "...");
+            Debug.log("Fill argument objects: " + args + ", " + targets.length + "...");
         }
         for (int argId : targets) {
             Argument aharg = aHArgs.get(argId);
-            if (aharg.needsFill || aharg.hasSpecialPrefix) {
-                ScriptEntry.InternalArgument piece = pieceHelp.get(argId);
-                if (piece.prefix != null) {
-                    if (piece.prefix.aHArg.needsFill) {
-                        aharg.prefix = parseChainObject(piece.prefix.value, context, repush).toString();
-                        aharg.lower_prefix = CoreUtilities.toLowerCase(aharg.prefix);
-                    }
-                    if (aharg.needsFill) {
-                        aharg.object = parseChainObject(piece.value, context, repush);
-                    }
-                    String fullx = aharg.prefix + ":" + aharg.object.toString();
-                    args.set(argId, new ElementTag(fullx));
-                    strArgs.set(argId, fullx);
+            ScriptEntry.InternalArgument piece = pieceHelp.get(argId);
+            if (piece.prefix != null) {
+                if (piece.prefix.aHArg.needsFill) {
+                    aharg.prefix = parseChainObject(piece.prefix.value, context).toString();
+                    aharg.lower_prefix = CoreUtilities.toLowerCase(aharg.prefix);
                 }
-                else {
-                    ObjectTag created = parseChainObject(piece.value, context, repush);
-                    args.set(argId, created);
-                    strArgs.set(argId, created.toString());
-                    aharg.object = created;
-                    aharg.prefix = null;
-                    aharg.lower_prefix = null;
+                if (aharg.needsFill) {
+                    aharg.object = parseChainObject(piece.value, context);
                 }
+                String fullx = aharg.prefix + ":" + aharg.object.toString();
+                args.set(argId, new ElementTag(fullx));
+            }
+            else {
+                ObjectTag created = parseChainObject(piece.value, context);
+                args.set(argId, created);
+                aharg.object = created;
+                aharg.prefix = null;
+                aharg.lower_prefix = null;
             }
         }
-    }
-
-    public static List<String> fillArguments(List<String> args, TagContext context) {
-        List<String> filledArgs = new ArrayList<>();
-
-        int nested_level = 0;
-        if (args != null) {
-            for (String argument : args) {
-                // Check nested level to avoid filling tags prematurely.
-                if (argument.equals("{")) {
-                    nested_level++;
-                }
-                if (argument.equals("}")) {
-                    nested_level--;
-                }
-                // If this argument isn't nested, fill the tag.
-                if (nested_level < 1) {
-                    filledArgs.add(tag(argument, context));
-                }
-                else {
-                    filledArgs.add(argument);
-                }
-            }
-        }
-        return filledArgs;
-    }
-
-    public static List<String> fillArguments(String[] args, TagContext context) {
-        List<String> filledArgs = new ArrayList<>();
-        if (args != null) {
-            for (String argument : args) {
-                filledArgs.add(tag(argument, context));
-            }
-        }
-        return filledArgs;
     }
 }

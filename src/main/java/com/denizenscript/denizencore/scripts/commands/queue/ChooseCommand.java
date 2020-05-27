@@ -13,10 +13,17 @@ import java.util.List;
 
 public class ChooseCommand extends BracedCommand {
 
+    public ChooseCommand() {
+        setName("choose");
+        setSyntax("choose [<option>] [<cases>]");
+        setRequiredArguments(1, 1);
+    }
+
     // <--[command]
     // @Name Choose
     // @Syntax choose [<option>] [<cases>]
     // @Required 1
+    // @Maximum 1
     // @Short Chooses an option from the list of cases.
     // @Group queue
 
@@ -65,11 +72,6 @@ public class ChooseCommand extends BracedCommand {
     // -->
 
     @Override
-    public void onEnable() {
-        setBraced();
-    }
-
-    @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
         for (Argument arg : scriptEntry.getProcessedArgs()) {
             if (!scriptEntry.hasObject("choice")) {
@@ -99,7 +101,7 @@ public class ChooseCommand extends BracedCommand {
             lookupTable = (HashMap<String, Integer>) scriptEntry.internal.specialProcessedData;
         }
         else {
-            lookupTable = new HashMap<>();
+            lookupTable = new HashMap<>(bracedCommandsList.size());
             for (int i = 0; i < bracedCommandsList.size(); i++) {
                 ScriptEntry se = bracedCommandsList.get(i);
                 String cmdName = CoreUtilities.toLowerCase(se.getCommandName());

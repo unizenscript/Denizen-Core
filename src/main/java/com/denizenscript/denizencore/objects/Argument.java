@@ -5,6 +5,7 @@ import com.denizenscript.denizencore.objects.core.ElementTag;
 import com.denizenscript.denizencore.objects.core.ListTag;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.tags.TagManager;
+import com.denizenscript.denizencore.utilities.AsciiMatcher;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 
@@ -42,7 +43,7 @@ public class Argument implements Cloneable {
 
     public Argument(String prefix, String value) {
         this.prefix = prefix;
-        this.value = TagManager.cleanOutputFully(value);
+        this.value = value;
         if (prefix != null) {
             if (prefix.equals("no_prefix")) {
                 this.prefix = null;
@@ -60,51 +61,15 @@ public class Argument implements Cloneable {
         object = new ElementTag(this.value);
     }
 
-    public Argument(String prefix, ObjectTag value) {
-        this.prefix = prefix;
-        this.value = TagManager.cleanOutputFully(value.toString());
-        if (prefix != null) {
-            if (prefix.equals("no_prefix")) {
-                this.prefix = null;
-                raw_value = this.value;
-            }
-            else {
-                raw_value = prefix + ":" + this.value;
-                lower_prefix = CoreUtilities.toLowerCase(prefix);
-            }
-        }
-        else {
-            raw_value = this.value;
-        }
-        lower_value = CoreUtilities.toLowerCase(this.value);
-        if (value instanceof ElementTag) {
-            object = new ElementTag(this.value);
-        }
-        else {
-            object = value;
-        }
-    }
+    public static AsciiMatcher prefixCharsAllowed = new AsciiMatcher("ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "abcdefghijklmnopqrstuvwxyz" + "_");
 
-    public Argument(ObjectTag obj) {
-        object = obj;
-        if (obj instanceof ElementTag) {
-            fillStr(obj.toString());
-        }
-        else {
-            raw_value = TagManager.cleanOutputFully(obj.toString()); // TODO: Avoid for non-elements
-            value = raw_value;
-            lower_value = CoreUtilities.toLowerCase(value);
-        }
-    }
-
-    void fillStr(String string) {
-        string = TagManager.cleanOutputFully(string);
+    public void fillStr(String string) {
         raw_value = string;
 
         int first_colon = string.indexOf(':');
-        int first_space = string.indexOf(' ');
+        int first_not_prefix = prefixCharsAllowed.indexOfFirstNonMatch(string);
 
-        if ((first_space > -1 && first_space < first_colon) || first_colon == -1) {
+        if ((first_not_prefix > -1 && first_not_prefix < first_colon) || first_colon == -1) {
             value = string;
             if (object == null) {
                 object = new ElementTag(value);
@@ -134,7 +99,7 @@ public class Argument implements Cloneable {
     }
 
     public boolean startsWith(String string) {
-        return lower_value.startsWith(CoreUtilities.toLowerCase(string));
+        return lower_value.startsWith(string);
     }
 
     public boolean hasPrefix() {
@@ -148,26 +113,13 @@ public class Argument implements Cloneable {
         return valueOf(prefix);
     }
 
-    // TODO: REMOVE IN 1.0
-    public boolean matches(String values) {
-        if (!CoreUtilities.contains(values, ',')) {
-            return CoreUtilities.toLowerCase(values).equals(lower_value);
-        }
-        for (String value : CoreUtilities.split(values, ',')) {
-            if (CoreUtilities.toLowerCase(value.replace(" ", "")).equals(lower_value)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean matchesOne(String value) {
-        return CoreUtilities.toLowerCase(value).equals(lower_value);
+    public boolean matches(String value) {
+        return value.equals(lower_value);
     }
 
     public boolean matches(String... values) {
         for (String value : values) {
-            if (CoreUtilities.toLowerCase(value).equals(lower_value)) {
+            if (value.equals(lower_value)) {
                 return true;
             }
         }
@@ -182,7 +134,7 @@ public class Argument implements Cloneable {
         if (object instanceof ListTag) {
             return (ListTag) object;
         }
-        return ListTag.valueOf(value, scriptEntry.getContext());
+        return ListTag.valueOf(value, scriptEntry == null ? null : scriptEntry.getContext());
     }
 
     public static HashSet<String> precalcEnum(Enum<?>[] values) {
@@ -196,17 +148,6 @@ public class Argument implements Cloneable {
     public boolean matchesEnum(HashSet<String> values) {
         String upper = value.replace("_", "").toUpperCase();
         return values.contains(upper);
-    }
-
-    public boolean matchesEnumList(HashSet<String> values) {
-        ListTag list = getList();
-        for (String string : list) {
-            String tval = string.replace("_", "").toUpperCase();
-            if (values.contains(tval)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public boolean matchesEnum(Enum<?>[] values) {
@@ -232,27 +173,11 @@ public class Argument implements Cloneable {
         return false;
     }
 
-    // TODO: REMOVE IN 1.0
-    public boolean matchesPrefix(String values) {
+    public boolean matchesPrefix(String value) {
         if (!hasPrefix()) {
             return false;
         }
-        if (!CoreUtilities.contains(values, ',')) {
-            return CoreUtilities.toLowerCase(values).equals(lower_prefix);
-        }
-        for (String value : CoreUtilities.split(values, ',')) {
-            if (CoreUtilities.toLowerCase(value.trim()).equals(lower_prefix)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean matchesOnePrefix(String value) {
-        if (!hasPrefix()) {
-            return false;
-        }
-        return CoreUtilities.toLowerCase(value).equals(lower_prefix);
+        return value.equals(lower_prefix);
     }
 
     public boolean matchesPrefix(String... values) {
@@ -260,42 +185,23 @@ public class Argument implements Cloneable {
             return false;
         }
         for (String value : values) {
-            if (CoreUtilities.toLowerCase(value).equals(lower_prefix)) {
+            if (value.equals(lower_prefix)) {
                 return true;
             }
         }
         return false;
     }
 
-    public boolean matchesPrimitive(ArgumentHelper.PrimitiveType argumentType) {
-        if (value == null) {
-            return false;
-        }
+    public boolean matchesBoolean() {
+        return lower_value.equals("true") || lower_value.equals("false");
+    }
 
-        switch (argumentType) {
-            case Word:
-                return ArgumentHelper.wordPrimitive.matcher(value).matches();
+    public boolean matchesInteger() {
+        return matchesFloat();
+    }
 
-            case Integer:
-                return ArgumentHelper.doublePrimitive.matcher(value).matches();
-
-            case Double:
-                return ArgumentHelper.doublePrimitive.matcher(value).matches();
-
-            case Float:
-                return ArgumentHelper.floatPrimitive.matcher(value).matches();
-
-            case Boolean:
-                return ArgumentHelper.booleanPrimitive.matcher(value).matches();
-
-            case Percentage:
-                return ArgumentHelper.percentagePrimitive.matcher(value).matches();
-
-            case String:
-                return true;
-        }
-
-        return false;
+    public boolean matchesFloat() {
+        return ArgumentHelper.matchesDouble(lower_value);
     }
 
     // Check if this argument matches a certain ObjectTag type
@@ -333,14 +239,26 @@ public class Argument implements Cloneable {
     public <T extends ObjectTag> T asType(Class<T> clazz) {
         T arg = CoreUtilities.asType(object, clazz, DenizenCore.getImplementation().getTagContext(scriptEntry));
         if (arg == null) {
-            Debug.echoError(scriptEntry.getResidingQueue(), "Cannot process argument '" + object + "' as type '" + clazz.getSimpleName() + "' (conversion returned null).");
+            Debug.echoError("Cannot process argument '" + object + "' as type '" + clazz.getSimpleName() + "' (conversion returned null).");
         }
         arg.setPrefix(prefix);
         return arg;
     }
 
     public void reportUnhandled() {
-        Debug.echoError('\'' + raw_value + "' is an unknown argument!");
+        if (TagManager.recentTagError) {
+            Debug.echoError('\'' + raw_value + "' is an unknown argument! This was probably caused by a tag not parsing properly.");
+            return;
+        }
+        if (prefix != null) {
+            Debug.echoError('\'' + raw_value + "' is an unknown argument! Did you mess up the command syntax?");
+        }
+        else {
+            Debug.echoError('\'' + raw_value + "' is an unknown argument! Did you forget quotes, or did you mess up the command syntax?");
+        }
+        if (scriptEntry != null && scriptEntry.getCommand() != null) {
+            Debug.log("Command usage: " + scriptEntry.getCommand().getUsageHint());
+        }
     }
 
     @Override

@@ -9,6 +9,7 @@ import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.scripts.containers.core.ProcedureScriptContainer;
 import com.denizenscript.denizencore.scripts.queues.core.InstantQueue;
 import com.denizenscript.denizencore.tags.ObjectTagProcessor;
+import com.denizenscript.denizencore.utilities.AsciiMatcher;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.NaturalOrderComparator;
 import com.denizenscript.denizencore.utilities.debugging.Debuggable;
@@ -17,6 +18,7 @@ import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.tags.Attribute;
 import com.denizenscript.denizencore.tags.TagContext;
 import com.denizenscript.denizencore.tags.core.EscapeTagBase;
+import com.denizenscript.denizencore.utilities.text.StringHolder;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -32,24 +34,33 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
     // The objects can be of any basic Denizen object type, including another list
     // (escaping sub-lists is strongly recommended).
     //
-    // For format info, see <@link language li@>
+    // These use the object notation "li@".
+    // The identity format for ListTags is each item, one after the other, in order, separated by a pipe '|' symbol.
+    // For example, for a list of 'taco', 'potatoes', and 'cheese', it would be 'li@taco|potatoes|cheese|'
+    // A list with zero items in it is simply 'li@',
+    // and a list with one item is just the one item and a pipe on the end.
+    //
+    // If the pipe symbol "|" appears in a list entry, it will be replaced by "&pipe",
+    // similarly if an ampersand "&" appears in a list entry, it will be replaced by "&amp".
+    // This is a subset of Denizen standard escaping, see <@link language property escaping>.
     //
     // -->
 
-    // <--[language]
-    // @name li@
-    // @group Object Fetcher System
-    // @description
-    // li@ refers to the 'object identifier' of a ListTag. The 'li@' is notation for Denizen's Object
-    // Fetcher. The constructor for a ListTag is the content items of a list separated by a pipe '|' symbol.
-    // For example, if I had a list of 'taco', 'potatoes', and 'cheese', I would use
-    // 'li@taco|potatoes|cheese'
-    //
-    // A list with zero items in it is simply 'li@'
-    // and a list with one item is just the one item and no pipes.
-    //
-    // For general info, see <@link language ListTag Objects>
-    // -->
+    public static AsciiMatcher needsEscpingMatcher = new AsciiMatcher("&|");
+
+    public static String escapeEntry(String value) {
+        if (!needsEscpingMatcher.containsAnyMatch(value)) {
+            return value;
+        }
+        return value.replace("&", "&amp").replace("|", "&pipe");
+    }
+
+    public static String unescapeEntry(String value) {
+        if (value.indexOf('&') == -1) {
+            return value;
+        }
+        return value.replace("&pipe", "|").replace("&amp", "&");
+    }
 
     public final ArrayList<ObjectTag> objectForms;
 
@@ -89,6 +100,13 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         return true;
     }
 
+    @Override
+    public String set(int index, String value) {
+        String result = super.set(index, value);
+        objectForms.set(index, new ElementTag(value));
+        return result;
+    }
+
     public boolean addAll(ListTag inp) {
         objectForms.addAll(inp.objectForms);
         return super.addAll(inp);
@@ -113,9 +131,7 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         return objectForms.get(id);
     }
 
-    public final static char internal_escape_char = (char) 0x05;
-    public final static String internal_escape = String.valueOf(internal_escape_char);
-
+    @Deprecated
     public static ListTag valueOf(String string) {
         return valueOf(string, null);
     }
@@ -135,12 +151,20 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
             return list;
         }
 
-        // Use value of string, which will separate values by the use of a pipe '|'
-        return new ListTag(string.startsWith("li@") ? string.substring(3) : string, context);
-    }
+        if (string.startsWith("map@")) {
+            MapTag map = MapTag.valueOf(string, context);
+            list = new ListTag();
+            if (map == null) {
+                list.add(string);
+            }
+            else {
+                list.addObject(map);
+            }
+            return list;
+        }
 
-    public static ListTag getListFor(ObjectTag inp) {
-        return getListFor(inp, null);
+        // Use value of string, which will separate values by the use of a pipe '|'
+        return new ListTag(string.startsWith("li@") ? string.substring("li@".length()) : string, context);
     }
 
     public static ListTag getListFor(ObjectTag inp, TagContext context) {
@@ -151,7 +175,18 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
 
         boolean flag = DenizenCore.getImplementation().matchesFlagListTag(arg);
 
-        return flag || arg.contains("|") || arg.contains(internal_escape) || arg.startsWith("li@");
+        return flag || arg.contains("|") || arg.startsWith("li@");
+    }
+
+    @Override
+    public ListTag duplicate() {
+        List<ObjectTag> objs = new ArrayList<>(size());
+        for (ObjectTag obj : objectForms) {
+            objs.add(obj == null ? null : obj.duplicate());
+        }
+        ListTag result = new ListTag(objs);
+        result.flag = flag;
+        return result;
     }
 
     /////////////
@@ -179,38 +214,54 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         this(items, null);
     }
 
+    public boolean wasLegacy = false;
+
     public ListTag(String items, TagContext context) {
+        objectForms = new ArrayList<>();
         if (items != null && items.length() > 0) {
-            // Count brackets
-            int brackets = 0;
-            // Record start position
-            int start = 0;
-            // Loop through characters
-            for (int i = 0; i < items.length(); i++) {
-                char chr = items.charAt(i);
-                // Count brackets
-                if (chr == '[') {
-                    brackets++;
+            if(items.endsWith("|")) {
+                int pipe = items.indexOf('|');
+                int lastPipe = 0;
+                while (pipe != -1) {
+                    String value = unescapeEntry(items.substring(lastPipe, pipe));
+                    ObjectTag object = ObjectFetcher.pickObjectFor(value, context);
+                    addObject(object);
+                    lastPipe = pipe + 1;
+                    pipe = items.indexOf('|', lastPipe);
                 }
-                else if (chr == ']') {
-                    if (brackets > 0) {
-                        brackets--;
+            }
+            else {
+                wasLegacy = true;
+                // Count brackets
+                int brackets = 0;
+                // Record start position
+                int start = 0;
+                // Loop through characters
+                for (int i = 0; i < items.length(); i++) {
+                    char chr = items.charAt(i);
+                    // Count brackets
+                    if (chr == '[') {
+                        brackets++;
+                    }
+                    else if (chr == ']') {
+                        if (brackets > 0) {
+                            brackets--;
+                        }
+                    }
+                    // Separate if an un-bracketed pipe is found
+                    else if (brackets == 0 && chr == '|') {
+                        super.add(items.substring(start, i));
+                        start = i + 1;
                     }
                 }
-                // Separate if an un-bracketed pipe is found
-                else if ((brackets == 0) && (chr == '|' || chr == internal_escape_char)) {
-                    super.add(items.substring(start, i));
-                    start = i + 1;
+                // If there is an item waiting, add it too
+                if (start < items.length()) {
+                    super.add(items.substring(start));
+                }
+                for (String str : this) {
+                    objectForms.add(ObjectFetcher.pickObjectFor(str, context));
                 }
             }
-            // If there is an item waiting, add it too
-            if (start < items.length()) {
-                super.add(items.substring(start));
-            }
-        }
-        objectForms = new ArrayList<>(size());
-        for (String str : this) {
-            objectForms.add(ObjectFetcher.pickObjectFor(str, context));
         }
 
         checkIfEmpty(); // Unizen-added
@@ -258,7 +309,7 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
 
     // A Set<Object> of items
     public ListTag(Set<?> items) {
-        objectForms = new ArrayList<>();
+        objectForms = new ArrayList<>(items.size());
         if (items != null) {
             for (Object o : items) {
                 String strd = o.toString();
@@ -326,8 +377,7 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
     }
 
     public List<String> filter(Enum[] values) {
-        List<String> list = new ArrayList<>();
-
+        List<String> list = new ArrayList<>(values.length);
         for (String string : this) {
             for (Enum value : values) {
                 if (value.name().equalsIgnoreCase(string)) {
@@ -335,22 +385,18 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
                 }
             }
         }
-
         if (!list.isEmpty()) {
             return list;
         }
-        else {
-            return null;
-        }
+        return null;
     }
 
     public <T extends ObjectTag> List<T> filter(Class<T> dClass, ScriptEntry entry) {
-        return filter(dClass, (entry == null ? DenizenCore.getImplementation().getTagContext(null) :
-                entry.entryData.getTagContext()), true);
+        return filter(dClass, (entry == null ? CoreUtilities.basicContext : entry.entryData.getTagContext()), true);
     }
 
     public <T extends ObjectTag> List<T> filter(Class<T> dClass, Debuggable debugger, boolean showFailure) {
-        TagContext context = DenizenCore.getImplementation().getTagContext(null);
+        TagContext context = DenizenCore.getImplementation().getTagContext((ScriptEntry) null);
         context.debug = debugger.shouldDebug();
         return filter(dClass, context, showFailure);
     }
@@ -360,14 +406,11 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
     }
 
     public <T extends ObjectTag> List<T> filter(Class<T> dClass, TagContext context, boolean showFailure) {
-        List<T> results = new ArrayList<>();
-
+        List<T> results = new ArrayList<>(objectForms.size());
         for (ObjectTag obj : objectForms) {
-
             try {
                 if (CoreUtilities.canPossiblyBeType(obj, dClass)) {
                     T object = CoreUtilities.asType(obj, dClass, context);
-
                     if (object != null) {
                         results.add(object);
                     }
@@ -383,7 +426,6 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
                 Debug.echoError(e);
             }
         }
-
         return results;
     }
 
@@ -467,10 +509,10 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         }
         StringBuilder output = new StringBuilder();
         output.append("li@");
-        for (String item : this) {
-            output.append(item).append('|');
+        for (ObjectTag object : objectForms) {
+            output.append(escapeEntry(object.savable())).append('|');
         }
-        return output.substring(0, output.length() - 1);
+        return output.toString();
     }
 
     @Override
@@ -700,6 +742,26 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         });
 
         // <--[tag]
+        // @attribute <ListTag.to_map>
+        // @returns MapTag
+        // @description
+        // Interprets a list of "key/value" pairs as a map, and returns the resulting MapTag.
+        // -->
+        registerTag("to_map", (attribute, object) -> {
+            MapTag map = new MapTag();
+            for (String entry : object) {
+                int slash = entry.indexOf('/');
+                if (slash == -1) {
+                    return null;
+                }
+                String key = entry.substring(0, slash);
+                String value = entry.substring(slash + 1);
+                map.map.put(new StringHolder(key), new ElementTag(value));
+            }
+            return map;
+        });
+
+        // <--[tag]
         // @attribute <ListTag.size>
         // @returns ElementTag(Number)
         // @description
@@ -759,9 +821,10 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         // @attribute <ListTag.set[...|...].at[<#>]>
         // @returns ListTag
         // @description
-        // returns a new ListTag with the items specified inserted to the specified location, replacing the element
-        // already at that location.
+        // returns a new ListTag with the items specified inserted to the specified location,
+        // replacing the element already at that location.
         // For example: .set[potato].at[2] on a list of "one|two|three" will return "one|potato|three".
+        // For example: .set[potato|taco|hotdog].at[2] on a list of "one|two|three" will return "one|potato|taco|hotdog|three".
         // -->
         registerTag("set", (attribute, object) -> {
             if (!attribute.hasContext(1)) {
@@ -790,6 +853,50 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
             }
             else {
                 Debug.echoError("The tag ListTag.set[...] must be followed by .at[#]!");
+                return null;
+            }
+        });
+
+        // <--[tag]
+        // @attribute <ListTag.overwrite[...|...].at[<#>]>
+        // @returns ListTag
+        // @description
+        // returns a new ListTag with the index specified and beyond replaced with the input list.
+        // The result list will be the same size as the original list, unless (input_list.size + at_index) is greater than the original list size.
+        // For example: .overwrite[potato|taco].at[2] on a list of "one|two|three|four" will return "one|potato|taco|four".
+        // For example: .overwrite[potato|taco|hotdog|cheeseburger].at[2] on a list of "one|two|three" will return "one|potato|taco|hotdog|cheeseburger".
+        // -->
+        registerTag("overwrite", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                Debug.echoError("The tag ListTag.overwrite[...] must have a value.");
+                return null;
+            }
+            if (object.isEmpty()) {
+                return null;
+            }
+            ListTag items = getListFor(attribute.getContextObject(1), attribute.context);
+            if (attribute.startsWith("at", 2) && attribute.hasContext(2)) {
+                ListTag result = new ListTag(object);
+                int index = attribute.getIntContext(2) - 1;
+                if (index < 0) {
+                    index = 0;
+                }
+                if (index > result.size() - 1) {
+                    index = result.size() - 1;
+                }
+                attribute.fulfill(1);
+                for (int i = 0; i < items.size(); i++) {
+                    if (index + i >= result.size()) {
+                        result.addObject(items.objectForms.get(i));
+                    }
+                    else {
+                        result.setObject(index + i, items.objectForms.get(i));
+                    }
+                }
+                return result;
+            }
+            else {
+                Debug.echoError("The tag ListTag.overwrite[...] must be followed by .at[#]!");
                 return null;
             }
         });
@@ -874,6 +981,29 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
                 }
             }
             return copy;
+        });
+
+        // <--[tag]
+        // @attribute <ListTag.shared_contents[...|...]>
+        // @returns ListTag
+        // @description
+        // returns a list of only items that appear in both this list and the input one.
+        // For example: .shared_contents[two|four|five|six] on a list of "one|two|three|four" will return "two|four".
+        // This will also inherently deduplicate the output as part of processing.
+        // -->
+        registerTag("shared_contents", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                Debug.echoError("The tag ListTag.shared_contents[...] must have a value.");
+                return null;
+            }
+            ListTag secondList = getListFor(attribute.getContextObject(1), attribute.context);
+            ListTag output = new ListTag();
+            for (String val : object) {
+                if (secondList.containsCaseInsensitive(val) && !output.containsCaseInsensitive(val)) {
+                    output.add(val);
+                }
+            }
+            return output;
         });
 
         // <--[tag]
@@ -1009,10 +1139,18 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
                 // @returns ListTag
                 // @description
                 // returns all elements in the range from the first index to the second.
-                // For example: .get[1].to[3] on a list of "one|two|three|four" will return "one|two|three"
+                // For example: .get[1].to[3] on a list of "one|two|three|four" will return "one|two|three".
+                // Use "last" as the 'to' index to automatically get all of the list starting at the first index.
+                // For example: .get[3].to[last] on a list of "one|two|three|four" will return "three|four".
                 // -->
                 if (attribute.startsWith("to", 2) && attribute.hasContext(2)) {
-                    int index2 = attribute.getIntContext(2) - 1;
+                    int index2;
+                    if (CoreUtilities.toLowerCase(attribute.getContext(2)).equals("last")) {
+                        index2 = object.size() - 1;
+                    }
+                    else {
+                        index2 = attribute.getIntContext(2) - 1;
+                    }
                     if (index2 >= object.size()) {
                         index2 = object.size() - 1;
                     }
@@ -1228,49 +1366,69 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         });
 
         // <--[tag]
-        // @attribute <ListTag.lowest>
+        // @attribute <ListTag.lowest[(<tag>)]>
         // @returns ElementTag(Decimal)
         // @description
         // returns the smallest value in a list of decimal numbers.
         // For example: a list of "3|2|1|10" will return "1".
+        // Optionally specify a tag to run on each list entry that returns the numeric value for that entry.
+        // For example, <server.list_online_players.lowest[money]> returns the player with the least money currently online.
         // -->
         registerTag("lowest", (attribute, object) -> {
+            String tag = null;
+            if (attribute.hasContext(1)) {
+                tag = attribute.getContext(1);
+            }
+            ObjectTag lowestObj = null;
             BigDecimal lowest = null;
-            for (String str : object) {
+            for (ObjectTag obj : object.objectForms) {
+                ObjectTag actualObj = obj;
+                if (tag != null) {
+                    obj = CoreUtilities.autoAttribTyped(obj, new Attribute(tag, attribute.getScriptEntry(), attribute.context));
+                }
+                String str = obj.toString();
                 if (ArgumentHelper.matchesDouble(str)) {
                     BigDecimal val = new ElementTag(str).asBigDecimal();
                     if (lowest == null || lowest.compareTo(val) > 0) {
                         lowest = val;
+                        lowestObj = actualObj;
                     }
                 }
             }
-            if (lowest == null) {
-                return null;
-            }
-            return new ElementTag(lowest);
+            return lowestObj;
         });
 
         // <--[tag]
-        // @attribute <ListTag.highest>
+        // @attribute <ListTag.highest[(<tag>)]>
         // @returns ElementTag(Decimal)
         // @description
         // returns the highest value in a list of decimal numbers.
         // For example: a list of "3|2|1|10" will return "10".
+        // Optionally specify a tag to run on each list entry that returns the numeric value for that entry.
+        // For example, <server.list_players.highest[money]> returns the player with the most money.
         // -->
         registerTag("highest", (attribute, object) -> {
+            String tag = null;
+            if (attribute.hasContext(1)) {
+                tag = attribute.getContext(1);
+            }
+            ObjectTag highestObj = null;
             BigDecimal highest = null;
-            for (String str : object) {
+            for (ObjectTag obj : object.objectForms) {
+                ObjectTag actualObj = obj;
+                if (tag != null) {
+                    obj = CoreUtilities.autoAttribTyped(obj, new Attribute(tag, attribute.getScriptEntry(), attribute.context));
+                }
+                String str = obj.toString();
                 if (ArgumentHelper.matchesDouble(str)) {
                     BigDecimal val = new ElementTag(str).asBigDecimal();
                     if (highest == null || highest.compareTo(val) < 0) {
                         highest = val;
+                        highestObj = actualObj;
                     }
                 }
             }
-            if (highest == null) {
-                return null;
-            }
-            return new ElementTag(highest);
+            return highestObj;
         });
 
         // <--[tag]
@@ -1369,6 +1527,10 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         // Non-numerical input is considered an error, and the result is not guaranteed.
         // -->
         registerTag("sort_by_number", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("Sort_By_Number must have an input value.");
+                return null;
+            }
             ListTag newlist = new ListTag(object);
             try {
                 Collections.sort(newlist.objectForms, new Comparator<ObjectTag>() {
@@ -1464,7 +1626,7 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
                             String name = definition_names != null && definition_names.length >= x ?
                                     definition_names[x - 1].trim() : String.valueOf(x);
                             queue.addDefinition(name, definition);
-                            Debug.echoDebug(entries.get(0), "Adding definition %" + name + "% as " + definition);
+                            Debug.echoDebug(entries.get(0), "Adding definition '" + name + "' as " + definition);
                             x++;
                         }
                         queue.start();
@@ -1594,7 +1756,7 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
             // -->
             if (attribute.startsWith("with", 2) && attribute.hasContext(2)) {
                 with = attribute.getContextObject(2);
-                attribute = attribute.fulfill(1);
+                attribute.fulfill(1);
             }
 
             ListTag newList = new ListTag(object);
@@ -1629,7 +1791,7 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
             // -->
             if (attribute.startsWith("with", 2) && attribute.hasContext(2)) {
                 with = attribute.getContextObject(2);
-                attribute = attribute.fulfill(1);
+                attribute.fulfill(1);
             }
 
             ListTag newList = new ListTag(object);
@@ -1838,6 +2000,16 @@ public class ListTag extends ArrayList<String> implements ObjectTag {
         registerTag("type", (attribute, object) -> {
             return new ElementTag("List");
         });
+    }
+
+    public boolean containsCaseInsensitive(String val) {
+        val = CoreUtilities.toLowerCase(val);
+        for (String str : this) {
+            if (CoreUtilities.toLowerCase(str).equals(val)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static ObjectTagProcessor<ListTag> tagProcessor = new ObjectTagProcessor<>();

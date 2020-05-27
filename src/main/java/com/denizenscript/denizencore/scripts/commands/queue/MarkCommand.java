@@ -9,10 +9,17 @@ import com.denizenscript.denizencore.scripts.commands.AbstractCommand;
 
 public class MarkCommand extends AbstractCommand {
 
+    public MarkCommand() {
+        setName("mark");
+        setSyntax("mark [<name>]");
+        setRequiredArguments(1, 1);
+    }
+
     // <--[command]
     // @Name Mark
     // @Syntax mark [<name>]
     // @Required 1
+    // @Maximum 1
     // @Short Marks a location for <@link command goto>.
     // @Group queue
     //
@@ -32,7 +39,6 @@ public class MarkCommand extends AbstractCommand {
     @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
 
-        // Interpret arguments
         for (Argument arg : scriptEntry.getProcessedArgs()) {
 
             if (!scriptEntry.hasObject("m_name")) {
@@ -44,7 +50,6 @@ public class MarkCommand extends AbstractCommand {
             }
         }
 
-        // Check for required information
         if (!scriptEntry.hasObject("m_name")) {
             throw new InvalidArgumentsException("Must have a mark name!");
         }
@@ -54,10 +59,8 @@ public class MarkCommand extends AbstractCommand {
     @Override
     public void execute(ScriptEntry scriptEntry) {
 
-        // Fetch required objects
         ElementTag mName = scriptEntry.getElement("m_name");
 
-        // Debug the execution
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(), mName.debug());
         }

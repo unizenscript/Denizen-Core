@@ -1,7 +1,6 @@
 package com.denizenscript.denizencore.objects.core;
 
 import com.denizenscript.denizencore.objects.*;
-import com.denizenscript.denizencore.scripts.ScriptBuilder;
 import com.denizenscript.denizencore.scripts.ScriptRegistry;
 import com.denizenscript.denizencore.scripts.containers.ScriptContainer;
 import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
@@ -81,25 +80,14 @@ public class ScriptTag implements ObjectTag, Adjustable {
     // fetcher or any other entry point to a ScriptTag object. ScriptTag objects have the object identifier of 's@'.
     // For example: ScriptTag_name
     //
-    // For format info, see <@link language s@>
+    // These use the object notation "s@".
+    // The identity format for scripts is simply the script name.
     //
     // -->
 
     ///////////////
     // Object Fetcher
     /////////////
-
-    // <--[language]
-    // @name s@
-    // @group Object Fetcher System
-    // @description
-    // s@ refers to the 'object identifier' of a ScriptTag. The 's@' is notation for Denizen's Object
-    // Fetcher. The only valid constructor for a ScriptTag is the name of the script container that it should be
-    // associated with. For example, if my script container is called 'cool_script', the ScriptTag object for that script
-    // would be able to be referenced (fetched) with s@cool_script.
-    //
-    // For general info, see <@link language ScriptTag Objects>
-    // -->
 
     public static ScriptTag valueOf(String string) {
         return valueOf(string, null);
@@ -123,14 +111,11 @@ public class ScriptTag implements ObjectTag, Adjustable {
     }
 
     public static boolean matches(String string) {
-
         if (CoreUtilities.toLowerCase(string).startsWith("s@")) {
             return true;
         }
 
-        ScriptTag script = new ScriptTag(string);
-        // Make sure it's valid.
-        return script.isValid();
+        return ScriptRegistry.getScriptContainer(string) != null;
     }
 
     //////////////////
@@ -143,16 +128,16 @@ public class ScriptTag implements ObjectTag, Adjustable {
      * @param scriptName the name of the script
      */
     public ScriptTag(String scriptName) {
-        if (ScriptRegistry.getScriptContainer(scriptName) != null) {
-            container = ScriptRegistry.getScriptContainer(scriptName);
-            name = scriptName.toUpperCase();
+        container = ScriptRegistry.getScriptContainer(scriptName);
+        if (container != null) {
+            name = CoreUtilities.toLowerCase(scriptName);
             valid = true;
         }
     }
 
     public ScriptTag(ScriptContainer container) {
         this.container = container;
-        name = container.getName().toUpperCase();
+        name = CoreUtilities.toLowerCase(container.getName());
         valid = true;
     }
 
@@ -363,7 +348,7 @@ public class ScriptTag implements ObjectTag, Adjustable {
 
         registerTag("yaml_key", (attribute, object) -> {
             if (!attribute.hasContext(1)) {
-                Debug.echoError("The tag ScriptTag.constant[...] must have a value.");
+                Debug.echoError("The tag ScriptTag.yaml_key[...] must have a value.");
                 return null;
             }
             ScriptContainer container = object.getContainer();
@@ -380,21 +365,7 @@ public class ScriptTag implements ObjectTag, Adjustable {
             if (obj == null) {
                 return null;
             }
-
-            if (obj instanceof List) {
-                ListTag list = new ListTag();
-                for (Object each : (List<Object>) obj) {
-                    if (each == null) {
-                        each = "null";
-                    }
-                    list.add(ScriptBuilder.stripLinePrefix(each.toString()));
-                }
-                return list;
-
-            }
-            else {
-                return new ElementTag(obj.toString());
-            }
+            return CoreUtilities.objectToTagForm(obj, attribute.context, true);
         });
 
         // <--[tag]

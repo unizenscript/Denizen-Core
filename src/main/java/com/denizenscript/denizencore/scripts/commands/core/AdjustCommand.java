@@ -15,10 +15,17 @@ import java.util.function.Consumer;
 
 public class AdjustCommand extends AbstractCommand {
 
+    public AdjustCommand() {
+        setName("adjust");
+        setSyntax("adjust [<ObjectTag>/def:<name>|...] [<mechanism>](:<value>)");
+        setRequiredArguments(2, 2);
+    }
+
     // <--[command]
     // @Name Adjust
     // @Syntax adjust [<ObjectTag>/def:<name>|...] [<mechanism>](:<value>)
     // @Required 2
+    // @Maximum 2
     // @Short Adjusts an object's mechanism.
     // @Group core
     // @Guide https://guide.denizenscript.com/guides/basics/mechanisms.html
@@ -141,6 +148,7 @@ public class AdjustCommand extends AbstractCommand {
             Debug.echoError("'" + objectString + "' is not an adjustable object type.");
             return object;
         }
+        object = ObjectFetcher.pickObjectFor(objectString, mechanism.context); // Create duplicate of object, instead of adjusting original
         ((Adjustable) object).safeAdjust(mechanism);
         return object;
     }

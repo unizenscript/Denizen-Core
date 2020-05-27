@@ -12,10 +12,17 @@ import com.denizenscript.denizencore.scripts.queues.core.Delayable;
 
 public class QueueCommand extends AbstractCommand {
 
+    public QueueCommand() {
+        setName("queue");
+        setSyntax("queue (<queue>) [clear/stop/pause/resume/delay:<duration>]");
+        setRequiredArguments(1, 2);
+    }
+
     // <--[command]
     // @Name Queue
     // @Syntax queue (<queue>) [clear/stop/pause/resume/delay:<duration>]
     // @Required 1
+    // @Maximum 2
     // @Short Modifies the current state of a script queue.
     // @Group queue
     //
@@ -97,7 +104,6 @@ public class QueueCommand extends AbstractCommand {
         // If no queues have been added, assume 'residing queue'
         scriptEntry.defaultObject("queue", new QueueTag(scriptEntry.getResidingQueue()));
 
-        // Check required args
         if (!scriptEntry.hasObject("action")) {
             throw new InvalidArgumentsException("Must specify an action. Valid: CLEAR, DELAY, PAUSE, RESUME");
         }
@@ -111,11 +117,10 @@ public class QueueCommand extends AbstractCommand {
     @Override
     public void execute(ScriptEntry scriptEntry) {
 
-        QueueTag queue = (QueueTag) scriptEntry.getObject("queue");
+        QueueTag queue = scriptEntry.getObjectTag("queue");
         Action action = (Action) scriptEntry.getObject("action");
-        DurationTag delay = (DurationTag) scriptEntry.getObject("delay");
+        DurationTag delay = scriptEntry.getObjectTag("delay");
 
-        // Debugger
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(), queue.debug()
                     + ArgumentHelper.debugObj("Action", action.toString())

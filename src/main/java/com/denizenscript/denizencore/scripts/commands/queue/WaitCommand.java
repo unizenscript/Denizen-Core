@@ -11,10 +11,17 @@ import com.denizenscript.denizencore.scripts.queues.core.Delayable;
 
 public class WaitCommand extends AbstractCommand {
 
+    public WaitCommand() {
+        setName("wait");
+        setSyntax("wait (<duration>) (queue:<name>)");
+        setRequiredArguments(0, 2);
+    }
+
     // <--[command]
     // @Name Wait
     // @Syntax wait (<duration>) (queue:<name>)
     // @Required 0
+    // @Maximum 2
     // @Short Delays a script for a specified amount of time.
     // @Group queue
     //
@@ -55,8 +62,8 @@ public class WaitCommand extends AbstractCommand {
     @Override
     public void execute(ScriptEntry scriptEntry) {
 
-        QueueTag queue = (QueueTag) scriptEntry.getObject("queue");
-        DurationTag delay = (DurationTag) scriptEntry.getObject("delay");
+        QueueTag queue = scriptEntry.getObjectTag("queue");
+        DurationTag delay = scriptEntry.getObjectTag("delay");
 
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(),
@@ -69,7 +76,9 @@ public class WaitCommand extends AbstractCommand {
         }
         else {
             scriptEntry.setInstant(false);
-            Debug.echoDebug(scriptEntry, "Forcing queue " + queue.queue.id + " into a timed queue...");
+            if (scriptEntry.dbCallShouldDebug()) {
+                Debug.echoDebug(scriptEntry, "Forcing queue " + queue.queue.id + " into a timed queue...");
+            }
             queue.queue.forceToTimed(delay);
         }
     }

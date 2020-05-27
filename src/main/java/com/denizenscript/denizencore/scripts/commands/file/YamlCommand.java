@@ -4,6 +4,7 @@ import com.denizenscript.denizencore.exceptions.InvalidArgumentsException;
 import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.ElementTag;
 import com.denizenscript.denizencore.objects.core.ListTag;
+import com.denizenscript.denizencore.objects.core.MapTag;
 import com.denizenscript.denizencore.scripts.commands.AbstractCommand;
 import com.denizenscript.denizencore.scripts.commands.Holdable;
 import com.denizenscript.denizencore.tags.TagRunnable;
@@ -29,10 +30,23 @@ import java.util.*;
 
 public class YamlCommand extends AbstractCommand implements Holdable {
 
+    public YamlCommand() {
+        setName("yaml");
+        setSyntax("yaml [create]/[load:<file>]/[loadtext:<text>]/[unload]/[savefile:<file>]/[copykey:<source key> <target key> (to_id:<name>)]/[set <key>([<#>])(:<action>):<value>] [id:<name>]");
+        setRequiredArguments(2, 4);
+        TagManager.registerTagHandler(new TagRunnable.RootForm() {
+            @Override
+            public void run(ReplaceableTagEvent event) {
+                yaml(event);
+            }
+        }, "yaml");
+    }
+
     // <--[command]
     // @Name Yaml
     // @Syntax yaml [create]/[load:<file>]/[loadtext:<text>]/[unload]/[savefile:<file>]/[copykey:<source key> <target key> (to_id:<name>)]/[set <key>([<#>])(:<action>):<value>] [id:<name>]
     // @Required 2
+    // @Maximum 4
     // @Short Edits a YAML configuration file.
     // @Group file
     //
@@ -41,13 +55,21 @@ public class YamlCommand extends AbstractCommand implements Holdable {
     // This can be used for interacting with other plugins' configuration files.
     // It can also be used for storing your own script's data.
     //
-    // Use holdable syntax ("- ~yaml load:...") with load or savefile actions to avoid locking up the server during file IO.
+    // Use waitable syntax ("- ~yaml load:...") with load or savefile actions to avoid locking up the server during file IO.
+    // Refer to <@link language ~waitable>.
     //
     // For loading and saving, the starting path is within 'plugins/Denizen'.
+    // The file path follows standard system file path rules. That means '/' separators folders,
+    // and '..' as a folder name means go-up-one folder, for example '../WorldGuard/config.yml' would load the WorldGuard plugin config.
+    // Also be aware that some servers (Linux/Mac based) have case sensitive file systems while others (Windows based) don't.
+    // Generally, when using existing paths, make sure your casing is correct. When creating new paths, prefer all-lowercase to reduce risk of issues.
     //
     // Please note that all usages of the YAML command except for "load" and "savefile" arguments are purely in memory.
     // That means, if you use "set" to make changes, those changes will not be saved to any file, until you use "savefile".
     // Similarly, "create" does not create any file, instead it only creates a YAML object in RAM.
+    //
+    // In-memory changes to a loaded YAML object will mark that object as having changes. Before saving,
+    // you can check whether the YAML object needs to be written to disk with the has_changes tag.
     //
     // Note that the '.yml' extension is not automatically appended, and you will have to include that in filenames.
     //
@@ -62,6 +84,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
     // <yaml[<idname>].contains[<path>]>
     // <yaml[<idname>].read[<path>]>
     // <yaml[<idname>].list_keys[<path>]>
+    // <yaml[<idname>].has_changes>
     //
     // @Usage
     // Use to create a new YAML file.
@@ -99,16 +122,6 @@ public class YamlCommand extends AbstractCommand implements Holdable {
     // Use to modify a copy the contents of one YAML key to a new owning key on a different YAML file.
     // - yaml id:myfile copykey:my.first.key my.new.key to_id:myotherfile
     // -->
-
-    @Override
-    public void onEnable() {
-        TagManager.registerTagHandler(new TagRunnable.RootForm() {
-            @Override
-            public void run(ReplaceableTagEvent event) {
-                yaml(event);
-            }
-        }, "yaml");
-    }
 
     Map<String, YamlConfiguration> yamls = new HashMap<>();
 
@@ -273,8 +286,6 @@ public class YamlCommand extends AbstractCommand implements Holdable {
             }
         }
 
-        // Check for required arguments
-
         if (!scriptEntry.hasObject("id")) {
             throw new InvalidArgumentsException("Must specify an id!");
         }
@@ -421,7 +432,9 @@ public class YamlCommand extends AbstractCommand implements Holdable {
                             return;
                         }
                         fileObj.getParentFile().mkdirs();
-                        String outp = yamls.get(id).saveToString(false);
+                        YamlConfiguration yaml = yamls.get(id);
+                        String outp = yaml.saveToString(false);
+                        yaml.setDirty(false);
                         Runnable saveRunnable = new Runnable() {
                             @Override
                             public void run() {
@@ -661,7 +674,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
             if (index > list.size()) {
                 index = list.size() - 1;
             }
-            if (list.size() == 0) {
+            if (list.isEmpty()) {
                 return "";
             }
             return list.get(index);
@@ -670,6 +683,13 @@ public class YamlCommand extends AbstractCommand implements Holdable {
 
     public void Set(YamlConfiguration yaml, int index, String key, String value) {
         if (index == -1) {
+            if (value.startsWith("map@")) {
+                MapTag map = MapTag.valueOf(value, CoreUtilities.noDebugContext);
+                if (map != null) {
+                    yaml.set(key, CoreUtilities.objectTagToJavaForm(map, true));
+                    return;
+                }
+            }
             yaml.set(key, value);
         }
         else {
@@ -707,7 +727,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         if (attribute.getAttribute(2).equalsIgnoreCase("list")) {
             ListTag list = new ListTag();
             list.addAll(yamls.keySet());
-            event.setReplaced(list.getAttribute(attribute.fulfill(2)));
+            event.setReplacedObject(list.getObjectAttribute(attribute.fulfill(2)));
             return;
         }
 
@@ -737,8 +757,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // Otherwise, returns false.
         // -->
         if (attribute.startsWith("contains") && attribute.hasContext(1)) {
-            event.setReplaced(new ElementTag(getYaml(id).contains(attribute.getContext(1)))
-                    .getAttribute(attribute.fulfill(1)));
+            event.setReplacedObject(new ElementTag(getYaml(id).contains(attribute.getContext(1))).getObjectAttribute(attribute.fulfill(1)));
             return;
         }
 
@@ -749,8 +768,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // Returns true if the specified path results in a list.
         // -->
         if (attribute.startsWith("is_list") && attribute.hasContext(1)) {
-            event.setReplaced(new ElementTag(getYaml(id).isList(attribute.getContext(1)))
-                    .getAttribute(attribute.fulfill(1)));
+            event.setReplacedObject(new ElementTag(getYaml(id).isList(attribute.getContext(1))).getObjectAttribute(attribute.fulfill(1)));
             return;
         }
 
@@ -762,29 +780,12 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // If the key is a list, returns a ListTag instead.
         // -->
         if (attribute.startsWith("read") && attribute.hasContext(1)) {
-
-            if (getYaml(id).isList(attribute.getContext(1))) {
-                List<String> value = getYaml(id).getStringList(attribute.getContext(1));
-                if (value == null) {
-                    // If value is null, the key at the specified path didn't exist.
-                    return;
-                }
-                else {
-                    event.setReplaced(new ListTag(value).getAttribute(attribute.fulfill(1)));
-                    return;
-                }
+            Object obj = getYaml(id).get(attribute.getContext(1));
+            if (obj == null) {
+                return;
             }
-            else {
-                String value = getYaml(id).getString(attribute.getContext(1));
-                if (value == null) {
-                    // If value is null, the key at the specified path didn't exist.
-                    return;
-                }
-                else {
-                    event.setReplaced(new ElementTag(value).getAttribute(attribute.fulfill(1)));
-                    return;
-                }
-            }
+            event.setReplacedObject(CoreUtilities.objectToTagForm(obj, attribute.context).getObjectAttribute(attribute.fulfill(1)));
+            return;
         }
 
         // <--[tag]
@@ -792,6 +793,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // @returns ListTag
         // @description
         // Returns a ListTag of all the keys at the path and all subpaths.
+        // Use empty path input to represent the root of the yaml document tree.
         // -->
         if (attribute.startsWith("list_deep_keys") && attribute.hasContext(1)) {
             Set<StringHolder> keys;
@@ -811,7 +813,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
 
             }
             else {
-                event.setReplaced(new ListTag(keys).getAttribute(attribute.fulfill(1)));
+                event.setReplacedObject(new ListTag(keys).getObjectAttribute(attribute.fulfill(1)));
                 return;
             }
         }
@@ -820,7 +822,8 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // @attribute <yaml[<id>].list_keys[<path>]>
         // @returns ListTag
         // @description
-        // Returns a ListTag of all the keys at the path.
+        // Returns a ListTag of all the keys at the path (and not sub-keys).
+        // Use empty path input to represent the root of the yaml document tree.
         // -->
         if (attribute.startsWith("list_keys") && attribute.hasContext(1)) {
             Set<StringHolder> keys;
@@ -840,9 +843,20 @@ public class YamlCommand extends AbstractCommand implements Holdable {
 
             }
             else {
-                event.setReplaced(new ListTag(keys).getAttribute(attribute.fulfill(1)));
+                event.setReplacedObject(new ListTag(keys).getObjectAttribute(attribute.fulfill(1)));
                 return;
             }
+        }
+
+        // <--[tag]
+        // @attribute <yaml[<id>].has_changes>
+        // @returns ElementTag(Boolean)
+        // @description
+        // Returns whether this YAML object has had changes since the last save or load.
+        // -->
+        if (attribute.startsWith("has_changes")) {
+            event.setReplacedObject(new ElementTag(getYaml(id).isDirty()).getObjectAttribute(attribute.fulfill(1)));
+            return;
         }
 
         // <--[tag]
@@ -853,7 +867,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // -->
         if (attribute.startsWith("to_json")) {
             JSONObject jsobj = new JSONObject(getYaml(id).getMap());
-            event.setReplaced(new ElementTag(jsobj.toString()).getAttribute(attribute.fulfill(1)));
+            event.setReplacedObject(new ElementTag(jsobj.toString()).getObjectAttribute(attribute.fulfill(1)));
             return;
         }
 
@@ -864,7 +878,7 @@ public class YamlCommand extends AbstractCommand implements Holdable {
         // Converts the YAML container to raw YAML text.
         // -->
         if (attribute.startsWith("to_text")) {
-            event.setReplaced(new ElementTag(getYaml(id).saveToString(false)).getAttribute(attribute.fulfill(1)));
+            event.setReplacedObject(new ElementTag(getYaml(id).saveToString(false)).getObjectAttribute(attribute.fulfill(1)));
             return;
         }
     }

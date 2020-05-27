@@ -11,10 +11,17 @@ import java.util.List;
 
 public class GotoCommand extends AbstractCommand {
 
+    public GotoCommand() {
+        setName("goto");
+        setSyntax("goto [<name>]");
+        setRequiredArguments(1, 1);
+    }
+
     // <--[command]
     // @Name Goto
     // @Syntax goto [<name>]
     // @Required 1
+    // @Maximum 1
     // @Short Jump forward to a location marked by <@link command mark>.
     // @Group queue
     //
@@ -38,7 +45,6 @@ public class GotoCommand extends AbstractCommand {
     @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
 
-        // Interpret arguments
         for (Argument arg : scriptEntry.getProcessedArgs()) {
 
             if (!scriptEntry.hasObject("m_name")) {
@@ -50,7 +56,6 @@ public class GotoCommand extends AbstractCommand {
             }
         }
 
-        // Check for required information
         if (!scriptEntry.hasObject("m_name")) {
             throw new InvalidArgumentsException("Must have a mark name!");
         }
@@ -60,10 +65,8 @@ public class GotoCommand extends AbstractCommand {
     @Override
     public void execute(ScriptEntry scriptEntry) {
 
-        // Fetch required objects
         ElementTag mName = scriptEntry.getElement("m_name");
 
-        // Debug the execution
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(), mName.debug());
         }

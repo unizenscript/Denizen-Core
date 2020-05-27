@@ -8,7 +8,6 @@ import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.objects.core.ElementTag;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.scripts.commands.AbstractCommand;
-import com.denizenscript.denizencore.tags.TagManager;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -17,10 +16,17 @@ import java.net.URLDecoder;
 
 public class LogCommand extends AbstractCommand {
 
+    public LogCommand() {
+        setName("log");
+        setSyntax("log [<text>] (type:{info}/severe/warning/fine/finer/finest/none/clear) [file:<name>]");
+        setRequiredArguments(2, 3);
+    }
+
     // <--[command]
     // @Name Log
     // @Syntax log [<text>] (type:{info}/severe/warning/fine/finer/finest/none/clear) [file:<name>]
     // @Required 2
+    // @Maximum 3
     // @Short Logs some debugging info to a file.
     // @Group file
     //
@@ -131,7 +137,7 @@ public class LogCommand extends AbstractCommand {
             return;
         }
 
-        String output = TagManager.cleanOutputFully(message.asString());
+        String output = message.asString();
 
         file.getParentFile().mkdirs();
         if (type == Type.NONE) {

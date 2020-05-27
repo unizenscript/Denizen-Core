@@ -17,10 +17,19 @@ import java.util.List;
 
 public class WaitUntilCommand extends AbstractCommand implements Holdable {
 
+    public WaitUntilCommand() {
+        setName("waituntil");
+        setSyntax("waituntil (rate:<duration>) [<comparisons>]");
+        setRequiredArguments(1, -1);
+        setParseArgs(false);
+        forceHold = true;
+    }
+
     // <--[command]
     // @Name WaitUntil
     // @Syntax waituntil (rate:<duration>) [<comparisons>]
     // @Required 1
+    // @Maximum -1
     // @Short Delays a script until the If comparisons return true.
     // @Group queue
     //
@@ -39,13 +48,6 @@ public class WaitUntilCommand extends AbstractCommand implements Holdable {
     // Use to delay the current queue until the player respawns (useful in a death event, for example).
     // - waituntil <player.is_spawned>
     // -->
-
-    @Override
-    public void onEnable() {
-        setBraced();
-        setParseArgs(false);
-        forceHold = true;
-    }
 
     @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
@@ -72,7 +74,6 @@ public class WaitUntilCommand extends AbstractCommand implements Holdable {
 
         boolean run = new IfCommand.ArgComparer().compare(new ArrayList<>(comparisons), scriptEntry);
 
-        // Report to dB
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(), ArgumentHelper.debugObj("run_first_check", run)
                     + (rate == null ? "" : rate.debug()));

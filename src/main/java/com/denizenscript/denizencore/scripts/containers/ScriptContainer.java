@@ -66,7 +66,15 @@ public class ScriptContainer implements Debuggable {
         this.name = scriptContainerName.toUpperCase();
     }
 
-    // The contents of the script container
+    /**
+     * Whether this script container type can run script logic.
+     * If this is false, this is a data-only script container.
+     */
+    public boolean canRunScripts = true;
+
+    /**
+     * The contents of the script container
+     */
     YamlConfiguration contents;
 
     /**
@@ -110,7 +118,9 @@ public class ScriptContainer implements Debuggable {
     //
     // -->
 
-    // The name of the script container
+    /**
+     * The name of the script container
+     */
     private String name;
 
     /**
@@ -157,8 +167,7 @@ public class ScriptContainer implements Debuggable {
     // @name Script Type
     // @group Script Container System
     // @description
-    // The type of container that a script is in. For example, 'task script' is a script type that has some sort of
-    // utility script or
+    // The type of container that a script is in. For example, 'task script' is a script type that has some sort of utility.
     //
     // <code>
     // script name:
@@ -238,6 +247,7 @@ public class ScriptContainer implements Debuggable {
         set = set.duplicate();
         for (ScriptEntry entry : set.entries) {
             entry.entryData = data.clone();
+            entry.updateContext();
             entry.entryData.scriptEntry = entry;
         }
         return set.entries;
@@ -256,7 +266,7 @@ public class ScriptContainer implements Debuggable {
             return got;
         }
         List<Object> stringEntries = contents.getList(path);
-        if (stringEntries == null || stringEntries.size() == 0) {
+        if (stringEntries == null || stringEntries.isEmpty()) {
             return null;
         }
         List<ScriptEntry> entries = ScriptBuilder.buildScriptEntries(stringEntries, this, null);
@@ -285,11 +295,6 @@ public class ScriptContainer implements Debuggable {
             }
         }
         return shouldDebug;
-    }
-
-    @Override
-    public boolean shouldFilter(String criteria) throws Exception {
-        return name.equalsIgnoreCase(criteria.replace("s@", ""));
     }
 
     @Override

@@ -20,7 +20,7 @@ public class Attribute {
         public final String context;
 
         public AttributeComponent(String inp) {
-            if (inp.endsWith("]") && inp.contains("[")) {
+            if (inp.endsWith("]") && CoreUtilities.contains(inp, '[')) {
                 int ind = inp.indexOf('[');
                 rawKey = inp.substring(0, ind);
                 context = inp.substring(ind + 1, inp.length() - 1);
@@ -48,61 +48,42 @@ public class Attribute {
     }
 
     private static AttributeComponent[] separate_attributes(String attributes) {
-
         AttributeComponent[] matchesRes = attribsLookup.get(attributes);
-
         if (matchesRes != null) {
             return matchesRes;
         }
-
-        ArrayList<AttributeComponent> matches = new ArrayList<>();
-
+        ArrayList<AttributeComponent> matches = new ArrayList<>(attributes.length() / 7);
         int x1 = 0, x2 = -1;
         int braced = 0;
-
         char[] attrInp = attributes.toCharArray();
-
         for (int x = 0; x < attrInp.length; x++) {
-
             char chr = attrInp[x];
-
             if (chr == '[') {
                 braced++;
             }
-
             else if (x == attrInp.length - 1) {
                 x2 = x + 1;
             }
-
             else if (chr == ']') {
                 if (braced > 0) {
                     braced--;
                 }
             }
-
-            else if (chr == '.'
-                    && !(x > 0 && isNumber(attrInp[x + 1]) && isNumber(attrInp[x - 1]))
-                    && braced == 0) {
+            else if (chr == '.' && !(x > 0 && isNumber(attrInp[x + 1]) && isNumber(attrInp[x - 1])) && braced == 0) {
                 x2 = x;
             }
-
             if (x2 > -1) {
                 matches.add(new AttributeComponent(attributes.substring(x1, x2)));
                 x2 = -1;
                 x1 = x + 1;
             }
-
         }
-
         if (Debug.verbose) {
             Debug.log("attribute splitter: '" + attributes + "' becomes: " + matches);
         }
-
         matchesRes = new AttributeComponent[matches.size()];
         matchesRes = matches.toArray(matchesRes);
-
         attribsLookup.put(attributes, matchesRes);
-
         return matchesRes;
     }
 
@@ -112,20 +93,7 @@ public class Attribute {
     ScriptEntry scriptEntry;
     public TagContext context;
 
-    private String raw_tag;
-    private String raw_tag_low;
-    private int rawtaglen = -1;
     String origin;
-
-    public String getRawTag() {
-        rebuild_raw_tag();
-        return raw_tag;
-    }
-
-    public String getRawTagLow() {
-        rebuild_raw_tag();
-        return raw_tag_low;
-    }
 
     public List<String> seemingSuccesses = new ArrayList<>(2);
 
@@ -174,7 +142,7 @@ public class Attribute {
         }
         if (string.indexOf('.') >= 0) {
             if (Debug.verbose) {
-                Debug.log("Trying tag startsWith " + string + " on tag " + raw_tag);
+                Debug.log("Trying tag startsWith " + string + " on tag " + toString());
             }
             List<String> tmp = CoreUtilities.split(string, '.');
             if (tmp.size() + fulfilled > attributes.length) {
@@ -209,27 +177,6 @@ public class Attribute {
         resetErrorTrack();
         fulfilled += attributes;
         return this;
-    }
-
-    private void rebuild_raw_tag() {
-        if (attributes.length == 0) {
-            raw_tag = "";
-            raw_tag_low = "";
-            return;
-        }
-        if (fulfilled == rawtaglen) {
-            return;
-        }
-        StringBuilder sb = new StringBuilder();
-        for (AttributeComponent attribute : attributes) {
-            sb.append(attribute.toString()).append(".");
-        }
-        raw_tag = sb.toString();
-        if (raw_tag.length() > 1) {
-            raw_tag = raw_tag.substring(0, raw_tag.length() - 1);
-        }
-        raw_tag_low = CoreUtilities.toLowerCase(raw_tag);
-        rawtaglen = fulfilled;
     }
 
     public boolean hasContext(int attribute) {

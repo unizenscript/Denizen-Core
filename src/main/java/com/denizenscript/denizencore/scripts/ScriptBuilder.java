@@ -10,22 +10,6 @@ import java.util.List;
 import java.util.Map;
 
 public class ScriptBuilder {
-    /**
-     * Adds an object to a list of ScriptEntries. Can later be retrieved from the ScriptEntry
-     * by using getObject(String key)
-     *
-     * @param scriptEntryList the list of ScriptEntries
-     * @param key             the key (name) of the object being added
-     * @param obj             the object
-     * @return the List of ScriptEntries, with the object added in each member
-     */
-    public static List<ScriptEntry> addObjectToEntries(List<ScriptEntry> scriptEntryList, String key, Object obj) {
-        for (ScriptEntry entry : scriptEntryList) {
-            entry.addObject(key, obj);
-            entry.trackObject(key);
-        }
-        return scriptEntryList;
-    }
 
     public static char LINE_PREFIX_CHAR = '^'; // This would be an invisible special character... if SnakeYAML allowed them!
 
@@ -37,12 +21,7 @@ public class ScriptBuilder {
         return rawLine.substring(infoEnd + 2); // Skip the symbol and the space after.
     }
 
-    /*
-     * Builds ScriptEntry(ies) of items read from a script
-     */
-
     public static List<ScriptEntry> buildScriptEntries(List<Object> contents, ScriptContainer parent, ScriptEntryData data) {
-        List<ScriptEntry> scriptCommands = new ArrayList<>();
 
         if (contents == null || contents.isEmpty()) {
             if (Debug.showScriptBuilder) {
@@ -55,6 +34,7 @@ public class ScriptBuilder {
             Debug.echoDebug(parent, "Building script entries:");
         }
 
+        List<ScriptEntry> scriptCommands = new ArrayList<>(contents.size());
         for (Object ientry : contents) {
 
             if (ientry == null) {
@@ -67,7 +47,12 @@ public class ScriptBuilder {
             if (ientry instanceof Map) {
                 Object key = ((Map) ientry).keySet().toArray()[0];
                 entry = key.toString();
-                inside = (List<Object>) ((Map) ientry).get(key);
+                Object rawValue = ((Map) ientry).get(key);
+                if (!(rawValue instanceof List)) {
+                    Debug.echoError("Script '" + parent.getName() + "' has invalid line " + ientry + ": line ends with ':' but no script body inside.");
+                    return null;
+                }
+                inside = (List<Object>) rawValue;
             }
             else {
                 entry = ientry.toString();
@@ -97,6 +82,7 @@ public class ScriptBuilder {
                 scriptCommands.add(newEntry);
             }
             catch (Exception e) {
+                Debug.echoError("Exception while building script '" + parent.getName() + "'...");
                 Debug.echoError(e);
             }
         }
