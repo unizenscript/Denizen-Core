@@ -2,11 +2,13 @@ package com.denizenscript.denizencore.utilities;
 
 import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.*;
+import com.denizenscript.denizencore.scripts.ScriptBuilder;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.objects.properties.Property;
 import com.denizenscript.denizencore.objects.properties.PropertyParser;
 import com.denizenscript.denizencore.tags.Attribute;
 import com.denizenscript.denizencore.tags.TagContext;
+import com.denizenscript.denizencore.utilities.text.StringHolder;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -17,11 +19,143 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.*;
 
 public class CoreUtilities {
 
     public static TagContext noDebugContext;
+    public static TagContext basicContext;
+
+    public static DecimalFormatSymbols decimalFormatSymbols = new DecimalFormatSymbols(Locale.US);
+
+    public static final char NBSP_Char = (char) 0x00A0;
+
+    public static final String NBSP = String.valueOf(NBSP_Char);
+
+    public static String clearNBSPs(String input) {
+        return input.replace(NBSP_Char, ' ');
+    }
+
+    public static ObjectTag objectToTagForm(Object obj, TagContext context) {
+        return objectToTagForm(obj, context, false);
+    }
+
+    public static ObjectTag objectToTagForm(Object obj, TagContext context, boolean scriptStrip) {
+        if (obj == null) {
+            return new ElementTag("null");
+        }
+        else if (obj instanceof List) {
+            ListTag listResult = new ListTag();
+            for (Object subObj : (List) obj) {
+                listResult.addObject(objectToTagForm(subObj, context, scriptStrip));
+            }
+            return listResult;
+        }
+        else if (obj instanceof Map) {
+            MapTag result = new MapTag();
+            for (Map.Entry<Object, Object> entry : ((Map<Object, Object>) obj).entrySet()) {
+                String key = String.valueOf(entry.getKey());
+                if (scriptStrip) {
+                    key = ScriptBuilder.stripLinePrefix(key);
+                }
+                result.map.put(new StringHolder(key), CoreUtilities.objectToTagForm(entry.getValue(), context));
+            }
+            return result;
+        }
+        else {
+            String result = obj.toString();
+            if (scriptStrip) {
+                result = ScriptBuilder.stripLinePrefix(result);
+            }
+            return ObjectFetcher.pickObjectFor(result, context);
+        }
+    }
+
+
+    public static Object objectTagToJavaForm(ObjectTag obj, boolean stringHolder) {
+        if (obj == null) {
+            return null;
+        }
+        else if (obj instanceof ListTag) {
+            List<Object> output = new ArrayList<>(((ListTag) obj).size());
+            for (ObjectTag entry : ((ListTag) obj).objectForms) {
+                output.add(objectTagToJavaForm(entry, stringHolder));
+            }
+            return output;
+        }
+        else if (obj instanceof MapTag) {
+            Map<Object, Object> output = new LinkedHashMap<>();
+            for (Map.Entry<StringHolder, ObjectTag> entry : ((MapTag) obj).map.entrySet()) {
+                output.put(stringHolder ? entry.getKey() : entry.getKey().str, objectTagToJavaForm(entry.getValue(), stringHolder));
+            }
+            return output;
+        }
+        else {
+            return obj.toString();
+        }
+    }
+
+    public static String splitLinesByCharacterCount(String str, int length) {
+        if (length < 3) {
+            return str;
+        }
+        StringBuilder output = new StringBuilder(str.length() * 2);
+        int curLineLen = 0;
+        int lineStart = 0;
+        mainloop:
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            if (c == '\n') {
+                output.append(str, lineStart, i);
+                curLineLen = 0;
+                lineStart = i + 1;
+                continue;
+            }
+            curLineLen++;
+            if (curLineLen > length) {
+                for (int x = i - 1; x > lineStart; x--) {
+                    char xc = str.charAt(x);
+                    if (xc == ' ') {
+                        output.append(str, lineStart, x).append("\n");
+                        curLineLen = 0;
+                        lineStart = x + 1;
+                        i = x;
+                        continue mainloop;
+                    }
+                }
+                output.append(str, lineStart, i).append("\n");
+                curLineLen = 0;
+                lineStart = i;
+            }
+        }
+        output.append(str, lineStart, str.length());
+        return output.toString();
+    }
+
+    public static void fixNewLinesToListSeparation(ListTag list) {
+        for (int i = 0; i < list.size(); i++) {
+            String line = list.get(i);
+            if (line.contains("\n")) {
+                List<String> split = split(line, '\n');
+                list.set(i, split.get(0));
+                for (int x = 1; x < split.size(); x++) {
+                    list.add(i + x, split.get(x));
+                }
+            }
+        }
+    }
+
+    public static String replace(String original, String findMe, String swapMeIn) {
+        // This is jank but still better than Java's regex-driven String#replace method.
+        int lastIndex = original.indexOf(findMe);
+        while (lastIndex >= 0) {
+            original = original.substring(0, lastIndex) + swapMeIn + original.substring(lastIndex + findMe.length());
+            lastIndex = original.indexOf(findMe, lastIndex + swapMeIn.length());
+        }
+        return original;
+    }
 
     public static String join(String delim, List objects) {
         StringBuilder output = new StringBuilder(objects.size() * 5);
@@ -275,7 +409,7 @@ public class CoreUtilities {
 
     public static String bigDecToString(BigDecimal input) {
         String temp = input.toString();
-        if (temp.contains(".")) {
+        if (contains(temp, '.')) {
             for (int i = temp.length() - 1; i >= 0; i--) {
                 if (temp.charAt(i) != '0') {
                     if (temp.charAt(i) == '.') {
@@ -287,13 +421,14 @@ public class CoreUtilities {
         }
         return temp;
     }
+    public static DecimalFormat df = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+
+    static {
+        df.setMaximumFractionDigits(340);
+    }
 
     public static String doubleToString(double input) {
-        String temp = String.valueOf(input);
-        if (temp.endsWith(".0")) {
-            return temp.substring(0, temp.length() - 2);
-        }
-        return temp;
+        return df.format(input);
     }
 
     /**
@@ -381,7 +516,6 @@ public class CoreUtilities {
         char[] data = args.toCharArray();
         StringBuilder nArg = new StringBuilder();
         int arg = 0;
-        int x = 0;
         for (int i = 0; i < data.length; i++) {
             if (data[i] == ' ') {
                 arg++;

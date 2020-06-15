@@ -4,10 +4,12 @@ import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.DurationTag;
 import com.denizenscript.denizencore.objects.core.ElementTag;
 import com.denizenscript.denizencore.objects.core.ListTag;
+import com.denizenscript.denizencore.objects.core.TimeTag;
 import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
 import com.denizenscript.denizencore.tags.TagRunnable;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.Deprecations;
+import com.denizenscript.denizencore.utilities.YamlConfiguration;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.tags.Attribute;
@@ -76,7 +78,7 @@ public class UtilTagBase {
             }
 
             // <--[tag]
-            // @attribute <util.random.decimal[<#>].to[<#>]>
+            // @attribute <util.random.decimal[<#.#>].to[<#.#>]>
             // @returns ElementTag(Decimal)
             // @description
             // Returns a random number between the 2 specified numbers, inclusive.
@@ -148,9 +150,41 @@ public class UtilTagBase {
             // -->
             else if (attribute.startsWith("duuid")) {
                 event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(
-                        attribute.hasContext(1) ? attribute.getContext(1) : ScriptQueue.getNextId("DUUID")),
+                        ScriptQueue.getNextId(attribute.hasContext(1) ? attribute.getContext(1) : "DUUID")),
                         attribute.fulfill(1)));
             }
+        }
+
+        // <--[tag]
+        // @attribute <util.list_numbers_to[<#>]>
+        // @returns ListTag
+        // @description
+        // Returns a list of numbers from 1 to the specified input number (inclusive).
+        // Note that you should NEVER use this as the input to a "foreach" command. Instead, use "repeat".
+        // In most cases, there's a better way to do what you're trying to accomplish than using this tag.
+        // -->
+        if (attribute.startsWith("list_numbers_to") && attribute.hasContext(1)) {
+            int to = attribute.getIntContext(1);
+            ListTag result = new ListTag();
+            for (int i = 1; i <= to; i++) {
+                result.add(String.valueOf(i));
+            }
+            event.setReplacedObject(CoreUtilities.autoAttrib(result, attribute.fulfill(1)));
+        }
+
+        // <--[tag]
+        // @attribute <util.empty_list_entries[<#>]>
+        // @returns ListTag
+        // @description
+        // Returns a list of the specified size where each entry is blank (zero characters long).
+        // -->
+        if (attribute.startsWith("empty_list_entries") && attribute.hasContext(1)) {
+            int to = attribute.getIntContext(1);
+            ListTag result = new ListTag();
+            for (int i = 1; i <= to; i++) {
+                result.add("");
+            }
+            event.setReplacedObject(CoreUtilities.autoAttrib(result, attribute.fulfill(1)));
         }
 
         // <--[tag]
@@ -205,20 +239,8 @@ public class UtilTagBase {
             event.setReplacedObject(CoreUtilities.autoAttrib(result, attribute.fulfill(1)));
         }
 
-        // <--[tag]
-        // @attribute <util.time_at[<year>/<month>/<day> (<hour>:<minute>:<second>(:<millisecond>))]>
-        // @returns DurationTag
-        // @description
-        // Returns the DurationTag time object for the input date/time.
-        // Specify input as y/m/d, or as y/m/d h:m:s, or as y/m/d h:m:s:ms
-        // All input values must be numbers (including the month, as a number from 1 to 12).
-        // Note that unspecified hour:minute:second will be handled as 00:00:00
-        // Note that 00:00:00 is midnight, the morning of the date given.
-        // Day is day of month (from 1 to 28-31 depending on month).
-        // Hour is hour of day, from 0 (midnight) to 23 (11 PM).
-        // Be cautious with potential inconsistencies due to time zone variation.
-        // -->
         else if (attribute.matches("time_at") && attribute.hasContext(1)) {
+            Deprecations.timeTagRewrite.warn(attribute.context);
             String[] dateComponents = attribute.getContext(1).split(" ");
             String[] ymd = dateComponents[0].split("/");
             int year = Integer.parseInt(ymd[0]);
@@ -236,183 +258,85 @@ public class UtilTagBase {
             }
             Calendar calendar = Calendar.getInstance();
             calendar.set(year, month, day, hour, minute, second);
-            DurationTag result = new DurationTag((calendar.getTimeInMillis() + millisecond) / 1000.0);
+            TimeTag result = new TimeTag(calendar.getTimeInMillis() + millisecond);
             event.setReplacedObject(result.getObjectAttribute(attribute.fulfill(1)));
         }
 
         // <--[tag]
-        // @attribute <util.date>
-        // @returns ElementTag
+        // @attribute <util.time_now>
+        // @returns TimeTag
         // @description
-        // Returns the current system date.
+        // Returns the current system date/time.
         // -->
+        else if (attribute.startsWith("time_now")) {
+            event.setReplacedObject(TimeTag.now().getObjectAttribute(attribute.fulfill(1)));
+        }
+
         else if (attribute.startsWith("date")) {
+            Deprecations.timeTagRewrite.warn(attribute.context);
             Calendar calendar = Calendar.getInstance();
             Date currentDate = new Date();
             SimpleDateFormat format = new SimpleDateFormat();
-
             attribute = attribute.fulfill(1);
-
-            // <--[tag]
-            // @attribute <util.date.time>
-            // @returns ElementTag
-            // @description
-            // Returns the current system time.
-            // -->
             if (attribute.startsWith("time")) {
-
                 attribute = attribute.fulfill(1);
-
-                // <--[tag]
-                // @attribute <util.date.time.twentyfour_hour>
-                // @returns ElementTag
-                // @description
-                // Returns the current system time in 24-hour format.
-                // -->
                 if (attribute.startsWith("twentyfour_hour")) {
                     format.applyPattern("k:mm");
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(format.format(currentDate))
                             , attribute.fulfill(1)));
                 }
-                // <--[tag]
-                // @attribute <util.date.time.year>
-                // @returns ElementTag(Number)
-                // @description
-                // Returns the current year of the system time.
-                // -->
                 else if (attribute.startsWith("year")) {
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(calendar.get(Calendar.YEAR))
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.month>
-                // @returns ElementTag(Number)
-                // @description
-                // Returns the current month of the system time.
-                // -->
                 else if (attribute.startsWith("month")) {
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(calendar.get(Calendar.MONTH) + 1)
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.week>
-                // @returns ElementTag(Number)
-                // @description
-                // Returns the current week of the system time.
-                // -->
                 else if (attribute.startsWith("week")) {
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(calendar.get(Calendar.WEEK_OF_YEAR))
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.day_of_week>
-                // @returns ElementTag(Number)
-                // @description
-                // Returns the current day-of-the-week of the system time.
-                // -->
                 else if (attribute.startsWith("day_of_week")) {
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(calendar.get(Calendar.DAY_OF_WEEK))
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.day>
-                // @returns ElementTag(Number)
-                // @description
-                // Returns the current day of the system time.
-                // -->
                 else if (attribute.startsWith("day")) {
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(calendar.get(Calendar.DAY_OF_MONTH))
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.hour>
-                // @returns ElementTag(Number)
-                // @description
-                // Returns the current hour of the system time.
-                // -->
                 else if (attribute.startsWith("hour")) {
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(calendar.get(Calendar.HOUR_OF_DAY))
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.minute>
-                // @returns ElementTag(Number)
-                // @description
-                // Returns the current minute of the system time.
-                // -->
                 else if (attribute.startsWith("minute")) {
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(calendar.get(Calendar.MINUTE))
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.second>
-                // @returns ElementTag(Number)
-                // @description
-                // Returns the current second of the system time.
-                // -->
                 else if (attribute.startsWith("second")) {
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(calendar.get(Calendar.SECOND))
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.duration>
-                // @returns DurationTag
-                // @description
-                // Returns the current system time as a duration.
-                // To get the exact millisecond count, use <@link tag server.current_time_millis>.
-                // -->
                 else if (attribute.startsWith("duration")) {
                     event.setReplacedObject(CoreUtilities.autoAttrib(new DurationTag(System.currentTimeMillis() / 50)
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.zone>
-                // @returns ElementTag
-                // @description
-                // Returns the abbreviated timezone of the server.
-                // -->
                 else if (attribute.startsWith("zone")) {
                     TimeZone tz = Calendar.getInstance().getTimeZone();
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(tz.getDisplayName(tz.inDaylightTime(currentDate), TimeZone.SHORT))
                             , attribute.fulfill(1)));
                 }
-
-                // <--[tag]
-                // @attribute <util.date.time.formatted_zone>
-                // @returns ElementTag
-                // @description
-                // Returns the timezone of the server.
-                // -->
                 else if (attribute.startsWith("formatted_zone")) {
                     TimeZone tz = Calendar.getInstance().getTimeZone();
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(tz.getDisplayName(tz.inDaylightTime(currentDate), TimeZone.LONG))
                             , attribute.fulfill(1)));
                 }
-
                 else {
                     format.applyPattern("K:mm a");
                     event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(format.format(currentDate))
                             , attribute));
                 }
-
             }
-
-            // <--[tag]
-            // @attribute <util.date.format[<format>]>
-            // @returns ElementTag
-            // @description
-            // Returns the current system time, formatted as specified
-            // Example format: [EEE, MMM d, yyyy K:mm a] will become "Mon, Jan 1, 2112 0:01 AM"
-            // -->
             else if (attribute.startsWith("format")
                     && attribute.hasContext(1)) {
                 try {
@@ -430,10 +354,20 @@ public class UtilTagBase {
                         , attribute));
             }
         }
+
+        // <--[tag]
+        // @attribute <util.parse_yaml[<yaml>]>
+        // @returns MapTag
+        // @description
+        // Parses the input YAML or JSON text into a MapTag.
+        // -->
+        else if (attribute.matches("parse_yaml") && attribute.hasContext(1)) {
+            ObjectTag tagForm = CoreUtilities.objectToTagForm(YamlConfiguration.load(attribute.getContext(1)).contents, attribute.context);
+            event.setReplacedObject(CoreUtilities.autoAttrib(tagForm, attribute.fulfill(1)));
+        }
     }
 
     public static void adjustSystem(Mechanism mechanism) {
-        ElementTag value = mechanism.getValue();
 
         // <--[mechanism]
         // @object system
@@ -443,8 +377,6 @@ public class UtilTagBase {
         // Tells the server to redirect logging to a world event or not.
         // Note that this redirects *all console output* not just Denizen output.
         // Note: don't enable /denizen debug -e while this is active.
-        // @tags
-        // None
         // -->
         if (mechanism.matches("redirect_logging") && mechanism.hasValue()) {
             if (!DenizenCore.getImplementation().allowConsoleRedirection()) {

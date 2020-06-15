@@ -3,6 +3,7 @@ package com.denizenscript.denizencore.scripts.commands.core;
 import com.denizenscript.denizencore.exceptions.InvalidArgumentsException;
 import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.ListTag;
+import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.events.OldEventManager;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
@@ -14,10 +15,17 @@ import java.util.Map;
 
 public class EventCommand extends AbstractCommand {
 
+    public EventCommand() {
+        setName("event");
+        setSyntax("event [<event name>|...] (context:<name>|<object>|...)");
+        setRequiredArguments(1, 2);
+    }
+
     // <--[command]
     // @Name Event
     // @Syntax event [<event name>|...] (context:<name>|<object>|...)
     // @Required 1
+    // @Maximum 2
     // @Short Manually fires a world event.
     // @Group core
     //
@@ -75,8 +83,10 @@ public class EventCommand extends AbstractCommand {
     @Override
     public void execute(ScriptEntry scriptEntry) {
 
-        ListTag events = (ListTag) scriptEntry.getObject("events");
-        ListTag context = (ListTag) scriptEntry.getObject("context");
+        Deprecations.eventCommand.warn(scriptEntry);
+
+        ListTag events = scriptEntry.getObjectTag("events");
+        ListTag context = scriptEntry.getObjectTag("context");
 
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(), events.debug() + context.debug());

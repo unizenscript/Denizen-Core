@@ -14,10 +14,17 @@ import java.util.HashMap;
 
 public class RateLimitCommand extends AbstractCommand {
 
+    public RateLimitCommand() {
+        setName("ratelimit");
+        setSyntax("ratelimit [<object>] [<duration>]");
+        setRequiredArguments(2, 2);
+    }
+
     // <--[command]
     // @Name RateLimit
     // @Syntax ratelimit [<object>] [<duration>]
     // @Required 2
+    // @Maximum 2
     // @Short Limits the rate that queues may process a script at.
     // @Group queue
     //
@@ -29,6 +36,8 @@ public class RateLimitCommand extends AbstractCommand {
     // That is to say: if you have a 'ratelimit <player> 10s', and then a few lines down a 'ratelimit <player> 10s',
     // those are two separate rate limiters.
     // Additionally, if you have a 'ratelimit <player> 10s' and two different players run it, they each have a separate rate limit applied.
+    //
+    // Note that this uses game delta tick time, not system realtime.
     //
     // @Tags
     // None.
@@ -67,7 +76,7 @@ public class RateLimitCommand extends AbstractCommand {
         }
 
         if (scriptEntry.internal.specialProcessedData == null) {
-            scriptEntry.internal.specialProcessedData = new HashMap<>();
+            scriptEntry.internal.specialProcessedData = new HashMap<>(2);
         }
         HashMap<String, Long> map = (HashMap<String, Long>) scriptEntry.internal.specialProcessedData;
         String key = CoreUtilities.toLowerCase(object.asString());

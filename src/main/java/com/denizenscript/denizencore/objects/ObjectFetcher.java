@@ -13,8 +13,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class ObjectFetcher {
 
@@ -40,25 +38,26 @@ public class ObjectFetcher {
         public ObjectTagProcessor<T> tagProcessor;
 
         public String prefix;
+
+        public boolean isAdjustable;
     }
 
     public static Map<String, ObjectType<? extends ObjectTag>> objectsByPrefix = new HashMap<>();
     public static Map<Class<? extends ObjectTag>, ObjectType<? extends ObjectTag>> objectsByClass = new HashMap<>();
 
     public static void registerCoreObjects() {
-
         // Initialize the ObjectFetcher
         registerWithObjectFetcher(CustomObjectTag.class, CustomObjectTag.tagProcessor); // custom@
-        registerWithObjectFetcher(ListTag.class, ListTag.tagProcessor);        // li@
-        registerWithObjectFetcher(ScriptTag.class, ScriptTag.tagProcessor);      // s@
-        registerWithObjectFetcher(ElementTag.class, ElementTag.tagProcessor);      // el@
-        registerWithObjectFetcher(DurationTag.class, DurationTag.tagProcessor);     // d@
-        registerWithObjectFetcher(QueueTag.class, QueueTag.tagProcessor);  // q@
-
+        registerWithObjectFetcher(DurationTag.class, DurationTag.tagProcessor); // d@
+        registerWithObjectFetcher(ElementTag.class, ElementTag.tagProcessor); // el@
+        registerWithObjectFetcher(ListTag.class, ListTag.tagProcessor); // li@
+        registerWithObjectFetcher(MapTag.class, MapTag.tagProcessor); // map@
+        registerWithObjectFetcher(QueueTag.class, QueueTag.tagProcessor); // q@
+        registerWithObjectFetcher(ScriptTag.class, ScriptTag.tagProcessor); // s@
+        registerWithObjectFetcher(TimeTag.class, TimeTag.tagProcessor); // time@
     }
 
     public static MatchesInterface getMatchesFor(Class clazz) {
-
         try {
             final MethodHandles.Lookup lookup = MethodHandles.lookup();
             CallSite site = LambdaMetafactory.metafactory(lookup, "matches", // MatchesInterface#matches
@@ -77,7 +76,6 @@ public class ObjectFetcher {
     }
 
     public static ValueOfInterface getValueOfFor(Class clazz) {
-
         try {
             final MethodHandles.Lookup lookup = MethodHandles.lookup();
             CallSite site = LambdaMetafactory.metafactory(lookup, "valueOf", // ValueOfInterface#valueOf
@@ -104,13 +102,13 @@ public class ObjectFetcher {
         ObjectType newType = new ObjectType();
         newType.clazz = objectTag;
         newType.tagProcessor = processor;
+        newType.isAdjustable = Adjustable.class.isAssignableFrom(objectTag);
         objectsByClass.put(objectTag, newType);
         try {
             Method valueOfMethod = objectTag.getMethod("valueOf", String.class, TagContext.class);
             if (valueOfMethod.isAnnotationPresent(Fetchable.class)) {
                 String identifier = valueOfMethod.getAnnotation(Fetchable.class).value();
                 objectsByPrefix.put(CoreUtilities.toLowerCase(identifier.trim()), newType);
-                Debug.log("Registered: " + objectTag.getSimpleName() + " as " + identifier);
                 newType.prefix = identifier;
             }
             else {
@@ -143,17 +141,18 @@ public class ObjectFetcher {
         }
     }
 
-    final static Pattern PROPERTIES_PATTERN = Pattern.compile("([^\\[]+)\\[(.+=.+)\\]", Pattern.CASE_INSENSITIVE | Pattern.DOTALL | Pattern.MULTILINE);
-
-    public final static Pattern DESCRIBED_PATTERN =
-            Pattern.compile("[^\\[]+\\[.+=.+\\]", Pattern.DOTALL | Pattern.MULTILINE);
+    public static boolean isObjectWithProperties(String input) {
+        return input.indexOf('[') != -1 && input.lastIndexOf(']') == input.length() - 1;
+    }
 
     public static boolean checkMatch(Class<? extends ObjectTag> dClass, String value) {
         if (value == null || dClass == null) {
             return false;
         }
-        Matcher m = PROPERTIES_PATTERN.matcher(value);
-        value = m.matches() ? m.group(1) : value;
+        int firstBracket = value.indexOf('[');
+        if (firstBracket != -1 && value.lastIndexOf(']') == value.length() - 1) {
+            value = value.substring(0, firstBracket);
+        }
         try {
             return objectsByClass.get(dClass).matches.matches(value);
         }
@@ -167,14 +166,14 @@ public class ObjectFetcher {
 
     @Deprecated
     public static <T extends ObjectTag> T getObjectFrom(Class<T> dClass, String value) {
-        return getObjectFrom(dClass, value, DenizenCore.getImplementation().getTagContext(null));
+        return getObjectFrom(dClass, value, CoreUtilities.basicContext);
     }
 
     public static List<String> separateProperties(String input) {
-        if (input.indexOf('[') == -1 || input.lastIndexOf(']') != input.length() - 1) {
+        if (!isObjectWithProperties(input)) {
             return null;
         }
-        ArrayList<String> output = new ArrayList<>();
+        ArrayList<String> output = new ArrayList<>(input.length() / 7);
         int start = 0;
         boolean needObject = true;
         int brackets = 0;
@@ -205,7 +204,7 @@ public class ObjectFetcher {
     public static <T extends ObjectTag> T getObjectFrom(ObjectType<T> type, String value, TagContext context) {
         try {
             List<String> matches = separateProperties(value);
-            boolean matched = matches != null && Adjustable.class.isAssignableFrom(type.clazz);
+            boolean matched = matches != null && type.isAdjustable;
             T gotten = type.valueOf.valueOf(matched ? matches.get(0) : value, context);
             if (gotten != null && matched) {
                 for (int i = 1; i < matches.size(); i++) {
@@ -214,9 +213,16 @@ public class ObjectFetcher {
                         Debug.echoError("Invalid property string '" + matches.get(i) + "'!");
                         continue;
                     }
-                    ((Adjustable) gotten).safeApplyProperty(new Mechanism(new ElementTag(data.get(0)),
-                            new ElementTag((data.get(1)).replace((char) 0x2011, ';')), context));
+                    String description = data.get(1);
+                    if (description.indexOf('&') != -1) {
+                        description = CoreUtilities.replace(description, "&amp", "&");
+                        description = CoreUtilities.replace(description, "&sc", ";");
+                        description = CoreUtilities.replace(description, "&lb", "[");
+                        description = CoreUtilities.replace(description, "&rb", "]");
+                    }
+                    ((Adjustable) gotten).safeApplyProperty(new Mechanism(new ElementTag(data.get(0)), new ElementTag(description), context));
                 }
+                gotten = (T) gotten.fixAfterProperties();
             }
             return gotten;
         }
@@ -242,7 +248,7 @@ public class ObjectFetcher {
         if (value == null) {
             return null;
         }
-        if (value.contains("@")) {
+        if (CoreUtilities.contains(value, '@')) {
             String type = value.split("@", 2)[0];
             ObjectType<? extends ObjectTag> toFetch = objectsByPrefix.get(type);
             if (toFetch != null) {

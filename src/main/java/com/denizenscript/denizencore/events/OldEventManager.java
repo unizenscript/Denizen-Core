@@ -250,11 +250,6 @@ public class OldEventManager {
         public Map<String, ObjectTag> contexts;
 
         @Override
-        public boolean getShouldCache() {
-            return true;
-        }
-
-        @Override
         public ObjectTag getContext(String name) {
             return contexts.get(name);
         }
@@ -263,9 +258,6 @@ public class OldEventManager {
     ////////////////////
     //  REGISTRATION
     //////////////
-
-    public void registerCoreMembers() {
-    }
 
     public static void registerSmartEvent(OldSmartEvent event) {
         // Seems simple enough

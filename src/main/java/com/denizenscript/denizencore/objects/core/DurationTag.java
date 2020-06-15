@@ -5,12 +5,10 @@ import com.denizenscript.denizencore.objects.ObjectTag;
 import com.denizenscript.denizencore.tags.TagRunnable;
 import com.denizenscript.denizencore.tags.ObjectTagProcessor;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
+import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.tags.Attribute;
 import com.denizenscript.denizencore.tags.TagContext;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 /**
  * Durations are a convenient way to get a 'unit of time' within Denizen.
@@ -32,7 +30,9 @@ public class DurationTag implements ObjectTag {
     // in between the range specified. The smaller value should be first. Examples:
     // '10s-25s', '1m-2m'.
     //
-    // For format info, see <@link language d@>
+    // These use the object notation "d@".
+    // The identity format for DurationTags is the number of seconds, followed by an 's'.
+    //
     // -->
 
     /////////////////////
@@ -46,17 +46,6 @@ public class DurationTag implements ObjectTag {
     //   OBJECT FETCHER
     /////////////////
 
-    // <--[language]
-    // @name d@
-    // @group Object Fetcher System
-    // @description
-    // d@ refers to the 'object identifier' of a 'Duration'. The 'd@' is notation for Denizen's Object
-    // Fetcher. Durations must be a positive number or range of numbers followed optionally by
-    // a unit of time, and prefixed by d@. Examples: d@3s, d@1d, d@10s-20s.
-    //
-    // For general info, see <@link language Duration>
-    // -->
-
     public static DurationTag valueOf(String string) {
         return valueOf(string, null);
     }
@@ -66,15 +55,16 @@ public class DurationTag implements ObjectTag {
         if (string == null) {
             return null;
         }
-
+        string = CoreUtilities.toLowerCase(string);
         if (string.startsWith("d@")) {
-            string = string.substring(2);
+            string = string.substring("d@".length());
         }
-
         if (string.equals("instant")) {
             return new DurationTag(0);
         }
-
+        if (string.isEmpty()) {
+            return null;
+        }
         // Pick a duration between a high and low number if there is a '-' present, but it's not "E-2" style scientific notation.
         if (string.contains("-") && !string.contains("e-")) {
             String[] split = string.split("-", 2);
@@ -106,9 +96,7 @@ public class DurationTag implements ObjectTag {
                 }
             }
         }
-
         String numericString = Character.isDigit(string.charAt(string.length() - 1)) ? string : string.substring(0, string.length() - 1);
-
         // Standard Duration. Check the type and create new DurationTag object accordingly.
         try {
             if (string.endsWith("t")) {
@@ -442,98 +430,9 @@ public class DurationTag implements ObjectTag {
             return new DurationTag(object.getTicks() + DurationTag.valueOf(attribute.getContext(1)).getTicks());
         });
 
-        // <--[tag]
-        // @attribute <DurationTag.time>
-        // @returns ElementTag
-        // @description
-        // returns the date-time specified by the duration object.
-        // -->
         registerTag("time", (attribute, object) -> {
-            Date currentDate = new Date(object.getTicks() * 50);
-            SimpleDateFormat format = new SimpleDateFormat();
-
-            // <--[tag]
-            // @attribute <DurationTag.time.year>
-            // @returns ElementTag(Number)
-            // @description
-            // Returns the current year of the time specified by the duration object.
-            // -->
-            if (attribute.startsWith("year", 2)) {
-                attribute.fulfill(1);
-                return new ElementTag(currentDate.getYear() + 1900 /* ??? */);
-            }
-
-            // <--[tag]
-            // @attribute <DurationTag.time.month>
-            // @returns ElementTag(Number)
-            // @description
-            // Returns the current month of the time specified by the duration object.
-            // -->
-            else if (attribute.startsWith("month", 2)) {
-                attribute.fulfill(1);
-                return new ElementTag(currentDate.getMonth() + 1);
-            }
-
-            // <--[tag]
-            // @attribute <DurationTag.time.day>
-            // @returns ElementTag(Number)
-            // @description
-            // Returns the current day of the time specified by the duration object.
-            // -->
-            else if (attribute.startsWith("day", 2)) {
-                attribute.fulfill(1);
-                return new ElementTag(currentDate.getDate());
-            }
-
-            // <--[tag]
-            // @attribute <DurationTag.time.day_of_week>
-            // @returns ElementTag(Number)
-            // @description
-            // Returns the current day-of-the-week of the time specified by the duration object.
-            // -->
-            else if (attribute.startsWith("day_of_week", 2)) {
-                attribute.fulfill(1);
-                return new ElementTag(currentDate.getDay());
-            }
-
-            // <--[tag]
-            // @attribute <DurationTag.time.hour>
-            // @returns ElementTag(Number)
-            // @description
-            // Returns the current hour of the time specified by the duration object.
-            // -->
-            else if (attribute.startsWith("hour", 2)) {
-                attribute.fulfill(1);
-                return new ElementTag(currentDate.getHours());
-            }
-
-            // <--[tag]
-            // @attribute <DurationTag.time.minute>
-            // @returns ElementTag(Number)
-            // @description
-            // Returns the current minute of the time specified by the duration object.
-            // -->
-            else if (attribute.startsWith("minute", 2)) {
-                attribute.fulfill(1);
-                return new ElementTag(currentDate.getMinutes());
-            }
-
-            // <--[tag]
-            // @attribute <DurationTag.time.second>
-            // @returns ElementTag(Number)
-            // @description
-            // Returns the current second of the time specified by the duration object.
-            // -->
-            else if (attribute.startsWith("second", 2)) {
-                attribute.fulfill(1);
-                return new ElementTag(currentDate.getSeconds());
-            }
-
-            // TODO: Custom format option
-            else {
-                format.applyPattern("EEE, d MMM yyyy HH:mm:ss");
-                return new ElementTag(format.format(currentDate));
-            }
+            Deprecations.timeTagRewrite.warn(attribute.context);
+            return new TimeTag(object.getMillis());
         });
 
         // <--[tag]
@@ -589,16 +488,16 @@ public class DurationTag implements ObjectTag {
         String timeString = "";
 
         if (days > 0) {
-            timeString = String.valueOf(days) + "d ";
+            timeString = days + "d ";
         }
         if (hours > 0) {
-            timeString = timeString + String.valueOf(hours) + "h ";
+            timeString = timeString + hours + "h ";
         }
         if (minutes > 0 && days == 0) {
-            timeString = timeString + String.valueOf(minutes) + "m ";
+            timeString = timeString + minutes + "m ";
         }
         if (seconds > 0 && minutes < 10 && hours == 0 && days == 0) {
-            timeString = timeString + String.valueOf(seconds) + "s";
+            timeString = timeString + seconds + "s";
         }
 
         if (timeString.isEmpty()) {

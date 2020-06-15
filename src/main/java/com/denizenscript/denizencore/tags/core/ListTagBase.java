@@ -45,6 +45,5 @@ public class ListTagBase {
         // Build and fill attributes
         Attribute attribute = event.getAttributes();
         event.setReplacedObject(CoreUtilities.autoAttrib(list, attribute.fulfill(1)));
-
     }
 }

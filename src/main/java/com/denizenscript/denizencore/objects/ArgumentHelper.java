@@ -1,17 +1,12 @@
 package com.denizenscript.denizencore.objects;
 
-import com.denizenscript.denizencore.objects.core.ElementTag;
-import com.denizenscript.denizencore.utilities.CoreUtilities;
+import com.denizenscript.denizencore.scripts.ScriptEntry;
+import com.denizenscript.denizencore.utilities.AsciiMatcher;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 
 import java.util.*;
-import java.util.regex.Pattern;
 
 public class ArgumentHelper {
-
-    public enum PrimitiveType {Float, Double, Integer, Boolean, String, Word, Percentage}
-
-    public final static Pattern floatPrimitive = Pattern.compile("^[-+]?[0-9]+[.]?[0-9]*([eE][-+]?[0-9]+)?$");
 
     // <--[language]
     // @name Number and Decimal
@@ -24,7 +19,6 @@ public class ArgumentHelper {
     // Numbers can be verified with the 'if' commands' 'matches' functionality.
     // For example: "- if <number> matches number" ... will return true if <number> is a valid number.
     // -->
-    public final static Pattern doublePrimitive = floatPrimitive;
 
     // <--[language]
     // @name Percentage
@@ -44,41 +38,6 @@ public class ArgumentHelper {
     // To translate between the two formats, you only need to multiply or divide by one hundred (100).
     //
     // -->
-    public final static Pattern percentagePrimitive = Pattern.compile("-?(?:\\d+)?(\\.\\d+)?(%)?");
-
-    public final static Pattern integerPrimitive = Pattern.compile("(-)?[0-9]+");
-
-    public final static Pattern booleanPrimitive = Pattern.compile("true|false", Pattern.CASE_INSENSITIVE);
-
-    public final static Pattern wordPrimitive = Pattern.compile("\\w+");
-
-    public static List<Argument> interpretObjects(List<ObjectTag> args) {
-        List<Argument> arg_list = new ArrayList<>(args.size());
-        for (ObjectTag obj : args) {
-            arg_list.add(new Argument(obj));
-        }
-        return arg_list;
-    }
-
-    public static List<String> specialInterpretTrickStrings = null;
-
-    public static List<Argument> specialInterpretTrickObjects = null;
-
-    public static List<Argument> interpretArguments(List<Argument> args) {
-        for (Argument arg : args) {
-            if (arg.needsFill || arg.hasSpecialPrefix) {
-                if (arg.object instanceof ElementTag && arg.prefix == null) {
-                    arg.fillStr(arg.object.toString());
-                }
-                else {
-                    arg.value = arg.object.toString();
-                    arg.lower_value = CoreUtilities.toLowerCase(arg.value);
-                    arg.raw_value = arg.generateRaw();
-                }
-            }
-        }
-        return args;
-    }
 
     /**
      * Turns a list of string arguments (separated by buildArgs) into Argument
@@ -87,13 +46,12 @@ public class ArgumentHelper {
      * @param args a list of string arguments
      * @return a list of Arguments
      */
-    public static List<Argument> interpret(List<String> args) {
-        if (args == specialInterpretTrickStrings) {
-            return interpretArguments(specialInterpretTrickObjects);
-        }
+    public static List<Argument> interpret(ScriptEntry entry, List<String> args) {
         List<Argument> arg_list = new ArrayList<>(args.size());
         for (String string : args) {
-            arg_list.add(new Argument(string));
+            Argument newArg = new Argument(string);
+            newArg.scriptEntry = entry;
+            arg_list.add(newArg);
         }
         return arg_list;
     }
@@ -111,7 +69,7 @@ public class ArgumentHelper {
         }
         stringArgs = stringArgs.trim();
         stringArgs = stringArgs.replace('\r', ' ').replace('\n', ' ');
-        ArrayList<String> matchList = new ArrayList<>();
+        ArrayList<String> matchList = new ArrayList<>(stringArgs.length() / 7);
         int start = 0;
         int len = stringArgs.length();
         char currentQuote = 0;
@@ -150,7 +108,7 @@ public class ArgumentHelper {
             Debug.log("Constructed args: " + Arrays.toString(matchList.toArray()));
         }
 
-        return matchList.toArray(new String[matchList.size()]);
+        return matchList.toArray(new String[0]);
     }
 
     public static String debugObj(String prefix, Object value) {
@@ -241,11 +199,46 @@ public class ArgumentHelper {
         return parts.length >= 2 ? parts[1] : arg;
     }
 
+    private static String DIGITS = "0123456789", PREFIXES = "+-", DOUBLE_CHARS = "eE";
+    private static AsciiMatcher DIGIT_MATCHER = new AsciiMatcher(DIGITS);
+    private static AsciiMatcher INTEGER_MATCHER = new AsciiMatcher(DIGITS + PREFIXES);
+    private static AsciiMatcher DOUBLE_SPECIAL_MATCHER = new AsciiMatcher(DOUBLE_CHARS);
+    private static AsciiMatcher PREFIX_MATCHER = new AsciiMatcher(PREFIXES);
+
     public static boolean matchesDouble(String arg) {
-        return doublePrimitive.matcher(arg).matches();
+        if (arg.length() == 0) {
+            return false;
+        }
+        if (!INTEGER_MATCHER.isMatch(arg.charAt(0))) {
+            return false;
+        }
+        if (!DIGIT_MATCHER.containsAnyMatch(arg)) {
+            return false;
+        }
+        boolean hadDoubleSyntax = false;
+        boolean hadDecimal = false;
+        for (int i = 1; i < arg.length(); i++) {
+            if (!DIGIT_MATCHER.isMatch(arg.charAt(i))) {
+                if (hadDoubleSyntax) {
+                    return false;
+                }
+                if (arg.charAt(i) == '.' && !hadDecimal) {
+                    hadDecimal = true;
+                }
+                else if (i + 1 < arg.length() && DOUBLE_SPECIAL_MATCHER.isMatch(arg.charAt(i))
+                        && PREFIX_MATCHER.isMatch(arg.charAt(i + 1))) {
+                    hadDoubleSyntax = true;
+                    i++;
+                }
+                else {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     public static boolean matchesInteger(String arg) {
-        return doublePrimitive.matcher(arg).matches();
+        return matchesDouble(arg) && INTEGER_MATCHER.isOnlyMatches(arg);
     }
 }

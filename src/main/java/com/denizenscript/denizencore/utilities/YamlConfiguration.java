@@ -5,6 +5,9 @@ import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.utilities.text.StringHolder;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.Constructor;
+import org.yaml.snakeyaml.representer.Representer;
+import org.yaml.snakeyaml.resolver.Resolver;
 
 import java.util.*;
 
@@ -13,11 +16,17 @@ import java.util.*;
  */
 public class YamlConfiguration {
 
+    public static class CustomResolver extends Resolver {
+        @Override
+        protected void addImplicitResolvers() {
+        }
+    }
+
     public static YamlConfiguration load(String data) {
         DumperOptions options = new DumperOptions();
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         options.setAllowUnicode(true);
-        Yaml yaml = new Yaml(options);
+        Yaml yaml = new Yaml(new Constructor(), new Representer(), options, new CustomResolver());
         Object obj = yaml.load(data);
         YamlConfiguration config = new YamlConfiguration();
         if (obj == null) {
@@ -38,7 +47,8 @@ public class YamlConfiguration {
         return config;
     }
 
-    Map<StringHolder, Object> contents = null;
+    public Map<StringHolder, Object> contents;
+    boolean dirty;
 
     /**
      * Use StringHolders instead of strings.
@@ -107,6 +117,7 @@ public class YamlConfiguration {
 
     public YamlConfiguration() {
         contents = new HashMap<>();
+        dirty = false;
     }
 
     public Set<StringHolder> getKeys(boolean deep) {
@@ -186,6 +197,7 @@ public class YamlConfiguration {
                 else {
                     portion.put(new StringHolder(parts.get(i)), o);
                 }
+                dirty = true;
                 return;
             }
             else if (oPortion == null) {
@@ -213,7 +225,7 @@ public class YamlConfiguration {
                 return;
             }
             else if (oPortion instanceof Map) {
-                if (((Map<StringHolder, Object>) oPortion).size() == 0) {
+                if (((Map<StringHolder, Object>) oPortion).isEmpty()) {
                     portion.remove(new StringHolder(parts.get(i)));
                     emptyEmptyMaps(parts);
                     return;
@@ -308,5 +320,13 @@ public class YamlConfiguration {
             Debug.echoError(e);
         }
         return null;
+    }
+
+    public boolean isDirty() {
+        return dirty;
+    }
+
+    public void setDirty(boolean dirty) {
+        this.dirty = dirty;
     }
 }

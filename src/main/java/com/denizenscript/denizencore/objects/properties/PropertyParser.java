@@ -3,6 +3,8 @@ package com.denizenscript.denizencore.objects.properties;
 import com.denizenscript.denizencore.objects.ObjectFetcher;
 import com.denizenscript.denizencore.tags.Attribute;
 import com.denizenscript.denizencore.tags.ObjectTagProcessor;
+import com.denizenscript.denizencore.utilities.AsciiMatcher;
+import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.objects.ObjectTag;
 
@@ -147,6 +149,8 @@ public class PropertyParser {
         }
     }
 
+    public static AsciiMatcher needsEscapingMatcher = new AsciiMatcher("&;[]");
+
     public static String getPropertiesString(ObjectTag object) {
         ClassPropertiesInfo properties = propertiesByClass.get(object.getObjectTagClass());
         if (properties == null) {
@@ -158,8 +162,13 @@ public class PropertyParser {
             if (property != null) {
                 String description = property.getPropertyString();
                 if (description != null) {
-                    prop_string.append(property.getPropertyId()).append('=')
-                            .append(description.replace(';', (char) 0x2011)).append(';');
+                    if (needsEscapingMatcher.containsAnyMatch(description)) {
+                        description = CoreUtilities.replace(description, "&", "&amp");
+                        description = CoreUtilities.replace(description, ";", "&sc");
+                        description = CoreUtilities.replace(description, "[", "&lb");
+                        description = CoreUtilities.replace(description, "]", "&rb");
+                    }
+                    prop_string.append(property.getPropertyId()).append('=').append(description).append(';');
                 }
             }
         }

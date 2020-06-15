@@ -179,10 +179,8 @@ public class ScriptHelper {
             List<File> files = CoreUtilities.listDScriptFiles(file);
             if (files.size() > 0) {
                 StringBuilder sb = new StringBuilder();
-                List<String> scriptNames = new ArrayList<>();
-
+                List<String> scriptNames = new ArrayList<>(files.size() * 2);
                 YamlConfiguration yaml;
-
                 for (File f : files) {
                     String fileName = f.getAbsolutePath().substring(file.getAbsolutePath().length());
                     if (Debug.showLoading) {
@@ -217,7 +215,7 @@ public class ScriptHelper {
             }
         }
         catch (Exception e) {
-            Debug.echoError("Woah! No script folder found in /plugins/Denizen/scripts/");
+            Debug.echoError("Woah! No script folder found in " + DenizenCore.getImplementation().getScriptFolder());
             hadError = true;
             Debug.echoError(e);
         }

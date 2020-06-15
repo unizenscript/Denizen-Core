@@ -12,10 +12,17 @@ import java.util.List;
 
 public class ForeachCommand extends BracedCommand {
 
+    public ForeachCommand() {
+        setName("foreach");
+        setSyntax("foreach [stop/next/<object>|...] (as:<name>) [<commands>]");
+        setRequiredArguments(1, 2);
+    }
+
     // <--[command]
     // @Name Foreach
     // @Syntax foreach [stop/next/<object>|...] (as:<name>) [<commands>]
     // @Required 1
+    // @Maximum 2
     // @Short Loops through a ListTag, running a set of commands for each item.
     // @Group queue
     // @Guide https://guide.denizenscript.com/guides/basics/loops.html
@@ -53,11 +60,6 @@ public class ForeachCommand extends BracedCommand {
     }
 
     @Override
-    public void onEnable() {
-        setBraced();
-    }
-
-    @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
 
         boolean handled = false;
@@ -75,12 +77,12 @@ public class ForeachCommand extends BracedCommand {
                 handled = true;
             }
             else if (!handled
-                    && arg.matches("\0CALLBACK")) {
+                    && arg.matches("\0callback")) {
                 scriptEntry.addObject("callback", new ElementTag(true));
                 handled = true;
             }
             else if (!scriptEntry.hasObject("as_name")
-                    && arg.matchesOnePrefix("as")) {
+                    && arg.matchesPrefix("as")) {
                 scriptEntry.addObject("as_name", arg.asElement());
             }
             else if (!handled) {
@@ -88,7 +90,7 @@ public class ForeachCommand extends BracedCommand {
                 scriptEntry.addObject("braces", getBracedCommands(scriptEntry));
                 handled = true;
             }
-            else if (arg.matchesOne("{")) {
+            else if (arg.matches("{")) {
                 break;
             }
             else {
@@ -111,11 +113,11 @@ public class ForeachCommand extends BracedCommand {
         ElementTag stop = scriptEntry.getElement("stop");
         ElementTag next = scriptEntry.getElement("next");
         ElementTag callback = scriptEntry.getElement("callback");
-        ListTag list = (ListTag) scriptEntry.getObject("list");
+        ListTag list = scriptEntry.getObjectTag("list");
         ElementTag as_name = scriptEntry.getElement("as_name");
 
         if (stop != null && stop.asBoolean()) {
-            // Report to dB
+
             if (scriptEntry.dbCallShouldDebug()) {
                 Debug.report(scriptEntry, getName(), stop.debug());
             }
@@ -123,7 +125,7 @@ public class ForeachCommand extends BracedCommand {
             for (int i = 0; i < scriptEntry.getResidingQueue().getQueueSize(); i++) {
                 ScriptEntry entry = scriptEntry.getResidingQueue().getEntry(i);
                 List<String> args = entry.getOriginalArguments();
-                if (entry.getCommandName().equalsIgnoreCase("foreach") && args.size() > 0 && args.get(0).equalsIgnoreCase("\0CALLBACK")) {
+                if (entry.getCommandName().equals("FOREACH") && args.size() > 0 && args.get(0).equals("\0CALLBACK")) {
                     hasnext = true;
                     break;
                 }
@@ -132,7 +134,7 @@ public class ForeachCommand extends BracedCommand {
                 while (scriptEntry.getResidingQueue().getQueueSize() > 0) {
                     ScriptEntry entry = scriptEntry.getResidingQueue().getEntry(0);
                     List<String> args = entry.getOriginalArguments();
-                    if (entry.getCommandName().equalsIgnoreCase("foreach") && args.size() > 0 && args.get(0).equalsIgnoreCase("\0CALLBACK")) {
+                    if (entry.getCommandName().equals("FOREACH") && args.size() > 0 && args.get(0).equals("\0CALLBACK")) {
                         scriptEntry.getResidingQueue().removeEntry(0);
                         break;
                     }
@@ -145,7 +147,7 @@ public class ForeachCommand extends BracedCommand {
             return;
         }
         else if (next != null && next.asBoolean()) {
-            // Report to dB
+
             if (scriptEntry.dbCallShouldDebug()) {
                 Debug.report(scriptEntry, getName(), next.debug());
             }
@@ -153,7 +155,7 @@ public class ForeachCommand extends BracedCommand {
             for (int i = 0; i < scriptEntry.getResidingQueue().getQueueSize(); i++) {
                 ScriptEntry entry = scriptEntry.getResidingQueue().getEntry(i);
                 List<String> args = entry.getOriginalArguments();
-                if (entry.getCommandName().equalsIgnoreCase("foreach") && args.size() > 0 && args.get(0).equalsIgnoreCase("\0CALLBACK")) {
+                if (entry.getCommandName().equals("FOREACH") && args.size() > 0 && args.get(0).equals("\0CALLBACK")) {
                     hasnext = true;
                     break;
                 }
@@ -162,7 +164,7 @@ public class ForeachCommand extends BracedCommand {
                 while (scriptEntry.getResidingQueue().getQueueSize() > 0) {
                     ScriptEntry entry = scriptEntry.getResidingQueue().getEntry(0);
                     List<String> args = entry.getOriginalArguments();
-                    if (entry.getCommandName().equalsIgnoreCase("foreach") && args.size() > 0 && args.get(0).equalsIgnoreCase("\0CALLBACK")) {
+                    if (entry.getCommandName().equals("FOREACH") && args.size() > 0 && args.get(0).equals("\0CALLBACK")) {
                         break;
                     }
                     scriptEntry.getResidingQueue().removeEntry(0);
@@ -174,18 +176,19 @@ public class ForeachCommand extends BracedCommand {
             return;
         }
         else if (callback != null && callback.asBoolean()) {
-            if (scriptEntry.getOwner() != null && (scriptEntry.getOwner().getCommandName().equalsIgnoreCase("foreach") ||
-                    scriptEntry.getOwner().getBracedSet() == null || scriptEntry.getOwner().getBracedSet().size() == 0 ||
+            if (scriptEntry.getOwner() != null && (scriptEntry.getOwner().getCommandName().equals("FOREACH") ||
+                    scriptEntry.getOwner().getBracedSet() == null || scriptEntry.getOwner().getBracedSet().isEmpty() ||
                     scriptEntry.getBracedSet().get(0).value.get(scriptEntry.getBracedSet().get(0).value.size() - 1) != scriptEntry)) {
                 ForeachData data = (ForeachData) scriptEntry.getOwner().getData();
                 data.index++;
                 if (data.index <= data.list.size()) {
-                    Debug.echoDebug(scriptEntry, Debug.DebugElement.Header, "Foreach loop " + data.index);
+                    if (scriptEntry.dbCallShouldDebug()) {
+                        Debug.echoDebug(scriptEntry, Debug.DebugElement.Header, "Foreach loop " + data.index);
+                    }
                     scriptEntry.getResidingQueue().addDefinition("loop_index", String.valueOf(data.index));
                     scriptEntry.getResidingQueue().addDefinition(as_name.asString(), String.valueOf(data.list.get(data.index - 1)));
                     List<ScriptEntry> bracedCommands = BracedCommand.getBracedCommands(scriptEntry.getOwner()).get(0).value;
-                    ScriptEntry callbackEntry = new ScriptEntry("FOREACH", new String[]{"\0CALLBACK", "as:" + as_name.asString()},
-                            (scriptEntry.getScript() != null ? scriptEntry.getScript().getContainer() : null));
+                    ScriptEntry callbackEntry = scriptEntry.clone();
                     callbackEntry.copyFrom(scriptEntry);
                     callbackEntry.setOwner(scriptEntry.getOwner());
                     bracedCommands.add(callbackEntry);
@@ -195,7 +198,9 @@ public class ForeachCommand extends BracedCommand {
                     scriptEntry.getResidingQueue().injectEntries(bracedCommands, 0);
                 }
                 else {
-                    Debug.echoDebug(scriptEntry, Debug.DebugElement.Header, "Foreach loop complete");
+                    if (scriptEntry.dbCallShouldDebug()) {
+                        Debug.echoDebug(scriptEntry, Debug.DebugElement.Header, "Foreach loop complete");
+                    }
                 }
             }
             else {
@@ -204,8 +209,6 @@ public class ForeachCommand extends BracedCommand {
         }
 
         else {
-
-            // Get objects
             List<BracedData> bdlist = (List<BracedData>) scriptEntry.getObject("braces");
             if (bdlist == null || bdlist.isEmpty()) {
                 Debug.echoError(scriptEntry.getResidingQueue(), "Empty braces (internal)!");
@@ -219,14 +222,15 @@ public class ForeachCommand extends BracedCommand {
                 return;
             }
 
-            // Report to dB
             if (scriptEntry.dbCallShouldDebug()) {
                 Debug.report(scriptEntry, getName(), list.debug() + as_name.debug());
             }
 
             int target = list.size();
             if (target <= 0) {
-                Debug.echoDebug(scriptEntry, "Empty list, not looping...");
+                if (scriptEntry.dbCallShouldDebug()) {
+                    Debug.echoDebug(scriptEntry, "Empty list, not looping...");
+                }
                 return;
             }
             ForeachData datum = new ForeachData();

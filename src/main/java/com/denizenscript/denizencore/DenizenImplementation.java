@@ -4,6 +4,7 @@ import com.denizenscript.denizencore.objects.Argument;
 import com.denizenscript.denizencore.objects.core.ListTag;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.scripts.ScriptEntryData;
+import com.denizenscript.denizencore.scripts.containers.ScriptContainer;
 import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
 import com.denizenscript.denizencore.tags.TagContext;
 import com.denizenscript.denizencore.utilities.debugging.Debuggable;
@@ -101,8 +102,6 @@ public interface DenizenImplementation {
      */
     ScriptEntryData getEmptyScriptEntryData();
 
-    TagContext getTagContextFor(ScriptEntry entry, boolean instant);
-
     boolean handleCustomArgs(ScriptEntry entry, Argument arg, boolean if_ignore);
 
     void refreshScriptContainers();
@@ -113,7 +112,7 @@ public interface DenizenImplementation {
 
     boolean matchesFlagListTag(String input);
 
-    String getLastEntryFromFlag(String flag);
+    TagContext getTagContext(ScriptContainer container);
 
     TagContext getTagContext(ScriptEntry entry);
 

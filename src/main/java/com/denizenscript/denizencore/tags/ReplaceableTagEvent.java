@@ -5,20 +5,25 @@ import com.denizenscript.denizencore.objects.ObjectTag;
 import com.denizenscript.denizencore.objects.core.ScriptTag;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
-import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 
 import java.util.HashMap;
-import java.util.List;
 
 public class ReplaceableTagEvent {
+
+    public static TagRunnable.RootForm objectTagBaseHandler = new TagRunnable.RootForm() {
+        @Override
+        public void run(ReplaceableTagEvent event) {
+            TagManager.fetchObject(event);
+        }
+    };
 
     private final TagContext context;
 
     private boolean wasReplaced = false;
 
     private ObjectTag alternative_tagged = null;
-    private String replaced = null;
+    private String replaced;
     private String value_tagged = null;
     private Attribute core_attributes = null;
 
@@ -41,8 +46,6 @@ public class ReplaceableTagEvent {
 
     public static class ReferenceData {
 
-        public boolean isInstant = false;
-
         public Attribute attribs = null;
 
         public String alternative = null;
@@ -50,6 +53,8 @@ public class ReplaceableTagEvent {
         public String rawTag = null;
 
         public String value = null;
+
+        public TagRunnable.RootForm baseHandler = null;
     }
 
     public ReferenceData mainRef = null;
@@ -81,16 +86,6 @@ public class ReplaceableTagEvent {
 
         mainRef = new ReferenceData();
 
-        // Check if tag is 'instant'
-        if (tag.length() > 0) {
-            char start = tag.charAt(0);
-            if (start == '!' || start == '^') {
-                Deprecations.oldTagTickSyntax.warn(context);
-                mainRef.isInstant = true;
-                tag = tag.substring(1);
-            }
-        }
-
         // Get alternative text
         int alternativeLoc = locateAlternative(tag);
 
@@ -118,6 +113,19 @@ public class ReplaceableTagEvent {
 
         mainRef.attribs = new Attribute(core_attributes, null, null);
         mainRef.rawTag = raw_tag;
+
+        String startValue = getName();
+        if (CoreUtilities.contains(startValue, '@')) {
+            mainRef.baseHandler = objectTagBaseHandler;
+        }
+        else {
+            mainRef.baseHandler = TagManager.handlers.get(startValue);
+            if (mainRef.baseHandler == null) {
+                if (!hasAlternative()) {
+                    Debug.echoError("(Initial detection) No tag-base handler for '" + startValue + "'.");
+                }
+            }
+        }
         refs.put(otag, mainRef);
     }
 
@@ -178,21 +186,8 @@ public class ReplaceableTagEvent {
         return -1;
     }
 
-    // Matches method (checks first attribute (name) of the tag)
-
-    // TODO: Remove!
     public boolean matches(String tagName) {
-        if (!tagName.contains(",")) {
-            return getName().equals(tagName);
-        }
-        List<String> tagNames = CoreUtilities.split(tagName, ',');
-        String name = getName();
-        for (String string : tagNames) {
-            if (name.equals(string.trim())) {
-                return true;
-            }
-        }
-        return false;
+        return getName().equals(tagName);
     }
 
     public boolean matches(String... tagNames) {
@@ -203,19 +198,6 @@ public class ReplaceableTagEvent {
             }
         }
         return false;
-    }
-
-    private static String StripContext(String input) {
-        if (input == null) {
-            return null;
-        }
-        int index = input.indexOf('[');
-        if (index < 0 || !input.endsWith("]")) {
-            return input;
-        }
-        else {
-            return input.substring(0, index);
-        }
     }
 
     ////////
@@ -306,7 +288,7 @@ public class ReplaceableTagEvent {
 
     public String getValue() {
         if (value_tagged == null) {
-            value_tagged = TagManager.cleanOutput(TagManager.tag(mainRef.value, context));
+            value_tagged = TagManager.tag(mainRef.value, context);
         }
         return value_tagged;
     }
@@ -343,10 +325,6 @@ public class ReplaceableTagEvent {
             replaced = replaced_obj.toString();
         }
         return replaced;
-    }
-
-    public boolean isInstant() {
-        return mainRef.isInstant;
     }
 
     public ScriptTag getScript() {

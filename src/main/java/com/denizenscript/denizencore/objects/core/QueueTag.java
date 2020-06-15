@@ -11,6 +11,9 @@ import com.denizenscript.denizencore.tags.TagContext;
 import com.denizenscript.denizencore.tags.TagRunnable;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
+import com.denizenscript.denizencore.utilities.text.StringHolder;
+
+import java.util.Map;
 
 public class QueueTag implements ObjectTag, Adjustable {
 
@@ -22,18 +25,8 @@ public class QueueTag implements ObjectTag, Adjustable {
     // This is not to be confused with a script path, which is a single set of script commands that can be run.
     // There can be one, multiple, or zero queues running at any time for any given path.
     //
-    // For format info, see <@link language q@>
-    //
-    // -->
-
-    // <--[language]
-    // @name q@
-    // @group Object Fetcher System
-    // @description
-    // q@ refers to the 'object identifier' of a QueueTag. The 'q@' is notation for Denizen's Object
-    // Fetcher. The constructor for a QueueTag is the queue ID.
-    //
-    // For general info, see <@link language QueueTag Objects>
+    // These use the object notation "q@".
+    // The identity format for queues is simply the queue ID.
     //
     // -->
 
@@ -214,10 +207,24 @@ public class QueueTag implements ObjectTag, Adjustable {
         // @attribute <QueueTag.definitions>
         // @returns ListTag
         // @description
-        // Returns the names of all definitions that were passed to the current queue.
+        // Returns the names of all definitions that were added to the current queue.
         // -->
         registerTag("definitions", (attribute, object) -> {
             return new ListTag(object.getQueue().getAllDefinitions().keySet());
+        });
+
+        // <--[tag]
+        // @attribute <QueueTag.definition_map>
+        // @returns MapTag
+        // @description
+        // Returns a map of all definitions on the queue.
+        // -->
+        registerTag("definition_map", (attribute, object) -> {
+            MapTag map = new MapTag();
+            for (Map.Entry<String, ObjectTag> entry : object.getQueue().getAllDefinitions().entrySet()) {
+                map.map.put(new StringHolder(entry.getKey()), entry.getValue());
+            }
+            return map;
         });
 
         // <--[tag]
