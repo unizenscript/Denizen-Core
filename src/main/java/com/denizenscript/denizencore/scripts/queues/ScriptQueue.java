@@ -90,6 +90,11 @@ public abstract class ScriptQueue implements Debuggable, DefinitionProvider {
     public boolean was_cleared = false;
 
     /**
+     * Whether this queue is locked to procedural commands only.
+     */
+    public boolean procedural = false;
+
+    /**
      * Optional secondary debug output method.
      */
     public Consumer<String> debugOutput = null;
@@ -171,6 +176,7 @@ public abstract class ScriptQueue implements Debuggable, DefinitionProvider {
         return definitions.containsKey(CoreUtilities.toLowerCase(definition));
     }
 
+    @Override
     public void addDefinition(String definition, ObjectTag value) {
         definitions.put(CoreUtilities.toLowerCase(definition), value);
     }

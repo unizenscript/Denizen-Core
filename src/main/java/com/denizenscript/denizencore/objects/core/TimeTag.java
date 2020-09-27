@@ -13,6 +13,7 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 
@@ -26,16 +27,16 @@ public class TimeTag implements ObjectTag, Adjustable {
     //
     // These use the object notation "time@".
     // The identity format for TimeTags is "yyyy/mm/dd_hh:mm:ss:mill_offset"
-    // So, for example, 'time@2020/05/23_02:20:31:0123_-7:00'
+    // So, for example, 'time@2020/05/23_02:20:31:123_-07:00'
+    //
+    // TimeTags can also be constructed from 'yyyy/mm/dd', 'yyyy/mm/dd_hh:mm:ss', or 'yyyy/mm/dd_hh:mm:ss:mill'.
+    // (Meaning: the offset is optional, the milliseconds are optional, and the time-of-day is optional,
+    // but if you exclude an optional part, you must immediately end the input there, without specifying more).
     //
     // -->
 
     public static TimeTag now() {
         return new TimeTag(ZonedDateTime.now());
-    }
-
-    public static TimeTag valueOf(String string) {
-        return valueOf(string, null);
     }
 
     @Fetchable("time")
@@ -48,37 +49,46 @@ public class TimeTag implements ObjectTag, Adjustable {
             string = string.substring("time@".length());
         }
         List<String> coreParts = CoreUtilities.split(string, '_');
-        if (coreParts.size() != 3) {
+        if (coreParts.size() > 3) {
             return null;
         }
         List<String> dateParts = CoreUtilities.split(coreParts.get(0), '/');
         if (dateParts.size() != 3) {
             return null;
         }
-        List<String> timeParts = CoreUtilities.split(coreParts.get(1), ':');
-        if (timeParts.size() != 3 && timeParts.size() != 4) {
-            return null;
+
+        List<String> timeParts = null;
+        if (coreParts.size() > 1) {
+            timeParts = CoreUtilities.split(coreParts.get(1), ':');
+            if (timeParts.size() != 3 && timeParts.size() != 4) {
+                return null;
+            }
         }
         try {
             int year = Integer.parseInt(dateParts.get(0));
             int month = Integer.parseInt(dateParts.get(1));
             int day = Integer.parseInt(dateParts.get(2));
-            int hour = Integer.parseInt(timeParts.get(0));
-            int minute = Integer.parseInt(timeParts.get(1));
-            int second = Integer.parseInt(timeParts.get(2));
-            int millisecond = timeParts.size() == 3 ? 0 : Integer.parseInt(timeParts.get(3));
-            ZoneOffset offset = ZoneOffset.of(coreParts.get(2));
-            ZonedDateTime dateTime = ZonedDateTime.of(year, month, day, hour, minute, second, millisecond * 1_000_000, offset);
-            return new TimeTag(dateTime);
+            int hour = 0, minute = 0, second = 0, millisecond = 0;
+            if (timeParts != null) {
+                hour = Integer.parseInt(timeParts.get(0));
+                minute = Integer.parseInt(timeParts.get(1));
+                second = Integer.parseInt(timeParts.get(2));
+                if (timeParts.size() == 4) {
+                    millisecond = Integer.parseInt(timeParts.get(3));
+                }
+            }
+            ZoneOffset offset = ZoneOffset.UTC;
+            if (coreParts.size() > 2) {
+                offset = ZoneOffset.of(coreParts.get(2));
+            }
+            return new TimeTag(year, month, day, hour, minute, second, millisecond, offset);
         }
         catch (NumberFormatException ex) {
-            if (context == null || context.debug) {
+            if (context == null || context.showErrors()) {
                 Debug.echoError(ex);
             }
             return null;
         }
-
-        // TODO
     }
 
     public static boolean matches(String string) {
@@ -94,14 +104,22 @@ public class TimeTag implements ObjectTag, Adjustable {
     public TimeTag() {
     }
 
+    public TimeTag(int year, int month, int day, int hour, int minute, int second, int millisecond, ZoneOffset offset) {
+        this(ZonedDateTime.of(year, month, day, hour, minute, second, millisecond * 1_000_000, offset));
+    }
+
     public TimeTag(ZonedDateTime instant) {
         this.instant = instant;
+    }
+
+    public TimeTag(long millis, ZoneId zone) {
+        this(Instant.ofEpochSecond(millis / 1000, (millis % 1000) * 1_000_000).atZone(zone));
     }
 
     public static ZoneId UTC_Zone = ZoneId.of("UTC");
 
     public TimeTag(long millis) {
-        this(Instant.ofEpochSecond(millis / 1000, (millis % 1000) * 1_000_000).atZone(UTC_Zone));
+        this(millis, UTC_Zone);
     }
 
     String prefix = "Time";
@@ -179,6 +197,34 @@ public class TimeTag implements ObjectTag, Adjustable {
         return identify();
     }
 
+    public int year() {
+        return instant.get(ChronoField.YEAR);
+    }
+
+    public int month() {
+        return instant.get(ChronoField.MONTH_OF_YEAR);
+    }
+
+    public int day() {
+        return instant.get(ChronoField.DAY_OF_MONTH);
+    }
+
+    public int hour() {
+        return instant.get(ChronoField.HOUR_OF_DAY);
+    }
+
+    public int minute() {
+        return instant.get(ChronoField.MINUTE_OF_HOUR);
+    }
+
+    public int second() {
+        return instant.get(ChronoField.SECOND_OF_MINUTE);
+    }
+
+    public int millisecondComponent() {
+        return instant.get(ChronoField.MILLI_OF_SECOND);
+    }
+
     public static void registerTags() {
 
         // <--[tag]
@@ -188,7 +234,7 @@ public class TimeTag implements ObjectTag, Adjustable {
         // Returns the year of this TimeTag, like '2020'.
         // -->
         registerTag("year", (attribute, object) -> {
-            return new ElementTag(object.instant.get(ChronoField.YEAR));
+            return new ElementTag(object.year());
         });
 
         // <--[tag]
@@ -198,7 +244,7 @@ public class TimeTag implements ObjectTag, Adjustable {
         // Returns the month of this TimeTag, where January is 1 and December is 12.
         // -->
         registerTag("month", (attribute, object) -> {
-            return new ElementTag(object.instant.get(ChronoField.MONTH_OF_YEAR));
+            return new ElementTag(object.month());
         });
 
         // <--[tag]
@@ -208,7 +254,7 @@ public class TimeTag implements ObjectTag, Adjustable {
         // Returns the name of the month of this TimeTag, like 'JANUARY'.
         // -->
         registerTag("month_name", (attribute, object) -> {
-            return new ElementTag(Month.of(object.instant.get(ChronoField.MONTH_OF_YEAR)).name());
+            return new ElementTag(Month.of(object.month()).name());
         });
 
         // <--[tag]
@@ -218,7 +264,7 @@ public class TimeTag implements ObjectTag, Adjustable {
         // Returns the day-of-month of this TimeTag, starting at 1.
         // -->
         registerTag("day", (attribute, object) -> {
-            return new ElementTag(object.instant.get(ChronoField.DAY_OF_MONTH));
+            return new ElementTag(object.day());
         });
 
         // <--[tag]
@@ -248,7 +294,7 @@ public class TimeTag implements ObjectTag, Adjustable {
         // Returns the hour-of-day of this TimeTag, from 1 to 24.
         // -->
         registerTag("hour", (attribute, object) -> {
-            return new ElementTag(object.instant.get(ChronoField.HOUR_OF_DAY));
+            return new ElementTag(object.hour());
         });
 
         // <--[tag]
@@ -258,7 +304,7 @@ public class TimeTag implements ObjectTag, Adjustable {
         // Returns the minute-of-hour of this TimeTag, from 0 to 59.
         // -->
         registerTag("minute", (attribute, object) -> {
-            return new ElementTag(object.instant.get(ChronoField.MINUTE_OF_HOUR));
+            return new ElementTag(object.minute());
         });
 
         // <--[tag]
@@ -268,7 +314,7 @@ public class TimeTag implements ObjectTag, Adjustable {
         // Returns the second-of-minute of this TimeTag, from 0 to 59.
         // -->
         registerTag("second", (attribute, object) -> {
-            return new ElementTag(object.instant.get(ChronoField.SECOND_OF_MINUTE));
+            return new ElementTag(object.second());
         });
 
         // <--[tag]
@@ -278,7 +324,7 @@ public class TimeTag implements ObjectTag, Adjustable {
         // Returns the millisecond of this TimeTag, from 0 to 999.
         // -->
         registerTag("millisecond", (attribute, object) -> {
-            return new ElementTag(object.instant.get(ChronoField.MILLI_OF_SECOND));
+            return new ElementTag(object.millisecondComponent());
         });
 
         // <--[tag]
@@ -353,6 +399,92 @@ public class TimeTag implements ObjectTag, Adjustable {
         });
 
         // <--[tag]
+        // @attribute <TimeTag.last_day_of_week[<day>]>
+        // @returns TimeTag
+        // @description
+        // Returns the timetag of the previous day of the specified input day-of-week (like 'sunday').
+        // The hour/minute/second/millisecond will be zeroed.
+        // -->
+        registerTag("last_day_of_week", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("time.last_day_of_week[...] must have input.");
+                return null;
+            }
+            DayOfWeek day;
+            try {
+                day = DayOfWeek.valueOf(attribute.getContext(1).toUpperCase());
+            }
+            catch (IllegalArgumentException ex) {
+                attribute.echoError("'" + attribute.getContext(1) + "' is not a valid day-of-week.");
+                return null;
+            }
+            ZonedDateTime time = object.instant;
+            while (!time.getDayOfWeek().equals(day)) {
+                time = time.minus(12, ChronoUnit.HOURS); // Subtract by 12 hours instead of 1 day to avoid most edge-cases.
+            }
+            TimeTag outTime = new TimeTag(time);
+            return new TimeTag(outTime.year(), outTime.month(), outTime.day(), 0, 0, 0, 0, object.instant.getOffset());
+        });
+
+        // <--[tag]
+        // @attribute <TimeTag.next_day_of_week[<day>]>
+        // @returns TimeTag
+        // @description
+        // Returns the timetag of the next day of the specified input day-of-week (like 'thursday').
+        // The hour/minute/second/millisecond will be zeroed.
+        // -->
+        registerTag("next_day_of_week", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("time.next_day_of_week[...] must have input.");
+                return null;
+            }
+            DayOfWeek day;
+            try {
+                day = DayOfWeek.valueOf(attribute.getContext(1).toUpperCase());
+            }
+            catch (IllegalArgumentException ex) {
+                attribute.echoError("'" + attribute.getContext(1) + "' is not a valid day-of-week.");
+                return null;
+            }
+            ZonedDateTime time = object.instant;
+            while (!time.getDayOfWeek().equals(day)) {
+                time = time.plus(12, ChronoUnit.HOURS); // Subtract by 12 hours instead of 1 day to avoid most edge-cases.
+            }
+            TimeTag outTime = new TimeTag(time);
+            return new TimeTag(outTime.year(), outTime.month(), outTime.day(), 0, 0, 0, 0, object.instant.getOffset());
+        });
+
+        // <--[tag]
+        // @attribute <TimeTag.start_of_year>
+        // @returns TimeTag
+        // @description
+        // Returns this time tag, with the month/day/hour/minute/second/millisecond zeroed (that is, midnight the morning of the first day of the same month).
+        // -->
+        registerTag("start_of_year", (attribute, object) -> {
+            return new TimeTag(object.year(), 1, 1, 0, 0, 0, 0, object.instant.getOffset());
+        });
+
+        // <--[tag]
+        // @attribute <TimeTag.start_of_month>
+        // @returns TimeTag
+        // @description
+        // Returns this time tag, with the day/hour/minute/second/millisecond zeroed (that is, midnight the morning of the first day of the same month).
+        // -->
+        registerTag("start_of_month", (attribute, object) -> {
+            return new TimeTag(object.year(), object.month(), 1, 0, 0, 0, 0, object.instant.getOffset());
+        });
+
+        // <--[tag]
+        // @attribute <TimeTag.start_of_day>
+        // @returns TimeTag
+        // @description
+        // Returns this time tag, with the hour/minute/second/millisecond zeroed (that is, midnight the morning of the same day).
+        // -->
+        registerTag("start_of_day", (attribute, object) -> {
+            return new TimeTag(object.year(), object.month(), object.day(), 0, 0, 0, 0, object.instant.getOffset());
+        });
+
+        // <--[tag]
         // @attribute <TimeTag.add[<duration>]>
         // @returns TimeTag
         // @description
@@ -364,8 +496,8 @@ public class TimeTag implements ObjectTag, Adjustable {
                 attribute.echoError("The tag TimeTag.add[...] must have an input.");
                 return null;
             }
-            DurationTag toAdd = DurationTag.valueOf(attribute.getContext(1), attribute.context);
-            return new TimeTag(object.millis() + toAdd.getMillis());
+            DurationTag toAdd = attribute.contextAsType(1, DurationTag.class);
+            return new TimeTag(object.millis() + toAdd.getMillis(), object.instant.getZone());
         });
 
         // <--[tag]
@@ -380,8 +512,8 @@ public class TimeTag implements ObjectTag, Adjustable {
                 attribute.echoError("The tag TimeTag.sub[...] must have an input.");
                 return null;
             }
-            DurationTag toSub = DurationTag.valueOf(attribute.getContext(1), attribute.context);
-            return new TimeTag(object.millis() - toSub.getMillis());
+            DurationTag toSub = attribute.contextAsType(1, DurationTag.class);
+            return new TimeTag(object.millis() - toSub.getMillis(), object.instant.getZone());
         });
 
         // <--[tag]
@@ -397,8 +529,38 @@ public class TimeTag implements ObjectTag, Adjustable {
                 attribute.echoError("The tag TimeTag.duration_since[...] must have an input.");
                 return null;
             }
-            TimeTag toSub = TimeTag.valueOf(attribute.getContext(1), attribute.context);
+            TimeTag toSub = attribute.contextAsType(1, TimeTag.class);
             return new DurationTag((object.millis() - toSub.millis()) / 1000.0);
+        });
+
+        // <--[tag]
+        // @attribute <TimeTag.is_after[<time>]>
+        // @returns ElementTag(Boolean)
+        // @description
+        // Returns true if this time object comes after the input time value, or false if it's before (or equal).
+        // -->
+        registerTag("is_after", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag TimeTag.is_after[...] must have an input.");
+                return null;
+            }
+            TimeTag toCompare = attribute.contextAsType(1, TimeTag.class);
+            return new ElementTag(object.millis() > toCompare.millis());
+        });
+
+        // <--[tag]
+        // @attribute <TimeTag.is_before[<time>]>
+        // @returns ElementTag(Boolean)
+        // @description
+        // Returns true if this time object comes before the input time value, or false if it's after (or equal).
+        // -->
+        registerTag("is_before", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag TimeTag.is_before[...] must have an input.");
+                return null;
+            }
+            TimeTag toCompare = attribute.contextAsType(1, TimeTag.class);
+            return new ElementTag(object.millis() < toCompare.millis());
         });
 
         // <--[tag]

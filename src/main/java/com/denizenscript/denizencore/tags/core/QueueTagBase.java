@@ -8,7 +8,6 @@ import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
 import com.denizenscript.denizencore.tags.Attribute;
 import com.denizenscript.denizencore.tags.ReplaceableTagEvent;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
-import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.tags.TagManager;
 
 public class QueueTagBase {
@@ -20,6 +19,7 @@ public class QueueTagBase {
         // @returns QueueTag
         // @description
         // Returns a queue object constructed from the input value.
+        // Refer to <@link language QueueTag objects>.
         // If no input is given, returns the current queue.
         // -->
         TagManager.registerTagHandler(new TagRunnable.RootForm() {
@@ -27,7 +27,7 @@ public class QueueTagBase {
             public void run(ReplaceableTagEvent event) {
                 queueTag(event);
             }
-        }, "queue", "q");
+        }, "queue");
     }
 
     //////////
@@ -36,12 +36,8 @@ public class QueueTagBase {
 
     public void queueTag(ReplaceableTagEvent event) {
 
-        if (!event.matches("queue", "q")) {
+        if (!event.matches("queue")) {
             return;
-        }
-
-        if (event.matches("q")) {
-            Deprecations.queueShorthand.warn(event.getScriptEntry());
         }
 
         // Handle <queue[id]. ...> tags
@@ -88,7 +84,7 @@ public class QueueTagBase {
 
         // <--[tag]
         // @attribute <queue.list>
-        // @returns ListTag(Queue)
+        // @returns ListTag(QueueTag)
         // @description
         // Returns a list of all currently running queues on the server.
         // -->

@@ -99,28 +99,21 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         // Modern script events support the concept of 'switches'.
         // A switch is a specification of additional requirements in an event line other than what's in the event label it.
         //
-        // A switch consists of a name and a value input, and are can be added anywhere in an event line as "name:<value>"
-        // For example, "on delta time secondly every:5:" is a valid event, where "delta time secondly" is the event itself,
-        // and "every:<#>" is a switch available to the event.
+        // A switch consists of a name and a value input, and are can be added anywhere in an event line as "name:<value>".
+        // For example, "on delta time secondly every:5:" is a valid event, where "delta time secondly" is the event itself, and "every:<#>" is a switch available to the event.
         //
-        // A traditional Denizen 1 event might look like "on <entity> damaged",
+        // A traditional Denizen event might look like "on <entity> damaged",
         // where "<entity>" can be filled with "entity" or any entity type (like "player").
         // A switch-using event would instead take the format "on entity damaged" with switch "type:<entity type>"
         // meaning you can do "on entity damaged" for any entity, or "on entity damaged type:player:" for players specifically.
-        // This is both more efficient to process and more explicit in what's going on, however it is less
-        // clear/readable to the average user, so it is not often used.
+        // This is both more efficient to process and more explicit in what's going on, however it is less clear/readable to the average user, so it is not often used.
         // Some events may have switches for less-often specified data, and use the event line for other options.
         //
-        // Most switches take input in the form of a simplified name or value.
-        // For example an "<entity>" input will usually accept the name of an entity type like "zombie",
-        // not a full entity UUID or other specific-entity identifier.
-        // An "<item>" input will expect a material name or item script name, not a fully detailed item description with property syntax.
-        // A "<cuboid>" input will expect the name of a notable cuboid, never a fully written out cuboid object.
-        //
         // One of the most common switches across many Denizen events is "in:<area>".
-        // In these switches, 'area' is a world, notable cuboid, or notable ellipsoid.
+        // In these switches, 'area' is a world, noted cuboid, or noted ellipsoid.
         // So for example you might have an event line like "on player breaks block in:space:"
-        // where space is the name of a world or of a notable cuboid.
+        // where space is the name of a world or of a noted cuboid.
+        // This also works as "in:cuboid" or "in:ellipsoid" to match for *any* noted cuboid or ellipsoid.
         // -->
 
         public boolean checkSwitch(String key, String value) {
@@ -128,7 +121,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             if (pathValue == null) {
                 return true;
             }
-            return CoreUtilities.toLowerCase(pathValue).equals(value);
+            return CoreUtilities.equalsIgnoreCase(pathValue, value);
         }
 
         public ScriptPath(ScriptContainer container, String event, String rawEventPath) {
@@ -139,7 +132,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             List<String> eventLabel = new ArrayList<>();
             for (String possible : CoreUtilities.split(event, ' ').toArray(new String[0])) {
                 List<String> split = CoreUtilities.split(possible, ':', 2);
-                if (split.size() > 1 && !split.get(0).equalsIgnoreCase("regex")) {
+                if (split.size() > 1 && !CoreUtilities.equalsIgnoreCase(split.get(0), "regex")) {
                     switches.put(CoreUtilities.toLowerCase(split.get(0)), split.get(1));
                 }
                 else {
@@ -149,8 +142,8 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             eventLower = CoreUtilities.toLowerCase(String.join(" ", eventLabel));
             eventArgs = eventLabel.toArray(new String[0]);
             eventArgsLower = CoreUtilities.split(eventLower, ' ').toArray(new String[0]);
-            switch_cancelled = switches.containsKey("cancelled") ? switches.get("cancelled").equalsIgnoreCase("true") : null;
-            switch_ignoreCancelled = switches.containsKey("ignorecancelled") ? switches.get("ignorecancelled").equalsIgnoreCase("true") : null;
+            switch_cancelled = switches.containsKey("cancelled") ? CoreUtilities.equalsIgnoreCase(switches.get("cancelled"), "true") : null;
+            switch_ignoreCancelled = switches.containsKey("ignorecancelled") ? CoreUtilities.equalsIgnoreCase(switches.get("ignorecancelled"), "true") : null;
             set = container.getSetFor("events." + rawEventPath);
         }
 
@@ -182,7 +175,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             Debug.log("Reloading script events...");
         }
         for (ScriptContainer container : worldContainers) {
-            if (!container.getContents().getString("enabled", "true").equalsIgnoreCase("true")) {
+            if (!CoreUtilities.equalsIgnoreCase(container.getContents().getString("enabled", "true"),"true")) {
                 continue;
             }
             YamlConfiguration config = container.getConfigurationSection("events");
@@ -263,6 +256,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
                 Debug.log("Event " + path + " is not matched to any ScriptEvents.");
             }
         }
+        Debug.log("Processed " + paths.size() + " script event paths.");
     }
 
     // <--[language]
@@ -423,7 +417,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         try {
             stats.scriptFires++;
             if (path.container.shouldDebug()) {
-                Debug.echoDebug(path.container, "<Y>Running script event '<A>" + getName() + "<Y>', event='<A>" + path.event + "<Y>'"
+                Debug.echoDebug(path.container, "<Y>Running script event '<A>" + getName() + "<Y>', event='<A>" + (path.fireAfter ? "after " : "on ") + path.event + "<Y>'"
                         + " for script '<A>" + path.container.getName() + "<Y>'");
             }
             List<ScriptEntry> entries = ScriptContainer.cleanDup(getScriptEntryData(), path.set);
@@ -510,96 +504,190 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     // '*_pickaxe|stone' will match any pickaxe or specifically stone. It will NOT match other types of stone, as it interprets
     // the match to be a list of "*_pickaxe" and "stone", NOT "*" followed by a list of "pickaxe" or "stone".
     //
-    // Additionally, when you're really deseparate for a good matcher, you may use 'regex:'
+    // Additionally, when you're really desperate for a good matcher, you may use 'regex:'
     // For example, "on player breaks regex:(?i)\d+_customitem:"
-    // Note that generally regex should be avoided whenever you can, as it's inherently hard to track exactly what it's doing at-a-glance.
+    // Note that generally regex should be avoided whenever you can, as it's inherently hard to track exactly what it's doing at-a-glance, and may have unexpected edge case errors.
     // -->
 
-    public static final HashMap<String, Pattern> knownPatterns = new HashMap<>();
+    public static abstract class MatchHelper {
 
-    public static String quotify(String input) {
-        StringBuilder output = new StringBuilder(input.length());
-        int last = 0;
-        int index = input.indexOf('*');
-        while (index >= 0) {
-            output.append(Pattern.quote(input.substring(last, index))).append("(.*)");
-            last = index + 1;
-            index = input.indexOf('*', last);
-        }
-        output.append(Pattern.quote(input.substring(last)));
-        return output.toString();
+        public abstract boolean doesMatch(String input);
     }
 
-    public static boolean isRegexMatchable(String input) {
+    public static class AlwaysMatchHelper extends MatchHelper {
+
+        @Override
+        public boolean doesMatch(String input) {
+            return true;
+        }
+    }
+
+    public static class ExactMatchHelper extends MatchHelper {
+
+        public ExactMatchHelper(String text) {
+            this.text = text;
+        }
+
+        public String text;
+
+        @Override
+        public boolean doesMatch(String input) {
+            return CoreUtilities.equalsIgnoreCase(text, input);
+        }
+    }
+
+    public static class PrefixAsteriskMatchHelper extends MatchHelper {
+
+        public PrefixAsteriskMatchHelper(String text) {
+            this.text = text;
+        }
+
+        public String text;
+
+        @Override
+        public boolean doesMatch(String input) {
+            return CoreUtilities.toLowerCase(input).endsWith(text);
+        }
+    }
+
+    public static class PostfixAsteriskMatchHelper extends MatchHelper {
+
+        public PostfixAsteriskMatchHelper(String text) {
+            this.text = text;
+        }
+
+        public String text;
+
+        @Override
+        public boolean doesMatch(String input) {
+            return CoreUtilities.toLowerCase(input).startsWith(text);
+        }
+    }
+
+    public static class MultipleAsteriskMatchHelper extends MatchHelper {
+
+        public MultipleAsteriskMatchHelper(String[] texts) {
+            this.texts = texts;
+        }
+
+        public String[] texts;
+
+        @Override
+        public boolean doesMatch(String input) {
+            int index = 0;
+            input = CoreUtilities.toLowerCase(input);
+            for (String text : texts) {
+                if (text.isEmpty()) {
+                    continue;
+                }
+                index = input.indexOf(text, index);
+                if (index == -1) {
+                    return false;
+                }
+                index += text.length();
+            }
+            return true;
+        }
+    }
+
+    public static class RegexMatchHelper extends MatchHelper {
+
+        public RegexMatchHelper(String regex) {
+            this.regex = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+        }
+
+        public Pattern regex;
+
+        @Override
+        public boolean doesMatch(String input) {
+            return regex.matcher(input).matches();
+        }
+    }
+
+    public static class MultipleMatchesHelper extends MatchHelper {
+
+        public MultipleMatchesHelper(MatchHelper[] matches) {
+            this.matches = matches;
+        }
+
+        public MatchHelper[] matches;
+
+        @Override
+        public boolean doesMatch(String input) {
+            for (MatchHelper match : matches) {
+                if (match.doesMatch(input)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    public static final HashMap<String, MatchHelper> knownMatchers = new HashMap<>();
+
+    public static boolean isAdvancedMatchable(String input) {
         return input.startsWith("regex:") || CoreUtilities.contains(input, '|') || CoreUtilities.contains(input, '*');
     }
 
-    public static Pattern regexHandle(String input) {
-        Pattern result = knownPatterns.get(input);
+    public static MatchHelper createMatcher(String input) {
+        MatchHelper result = knownMatchers.get(input);
         if (result != null) {
             return result;
         }
-        String output;
+        int asterisk;
         if (input.startsWith("regex:")) {
-            output = input.substring("regex:".length());
+            return new RegexMatchHelper(input.substring("regex:".length()));
         }
         else if (CoreUtilities.contains(input, '|')) {
             String[] split = input.split("\\|");
+            MatchHelper[] matchers = new MatchHelper[split.length];
             for (int i = 0; i < split.length; i++) {
-                split[i] = quotify(split[i]);
+                matchers[i] = createMatcher(split[i]);
             }
-            output = String.join("|", split);
+            result = new MultipleMatchesHelper(matchers);
         }
-        else if (CoreUtilities.contains(input, '*')) {
-            output = quotify(input);
+        else if ((asterisk = input.indexOf('*')) != -1) {
+            if (input.length() == 1) {
+                result = new AlwaysMatchHelper();
+            }
+            else if (asterisk == 0 && input.indexOf('*', 1) == -1) {
+                result = new PrefixAsteriskMatchHelper(input.substring(1));
+            }
+            else if (asterisk == input.length() - 1) {
+                result = new PostfixAsteriskMatchHelper(input.substring(0, input.length() - 1));
+            }
+            else {
+                result = new MultipleAsteriskMatchHelper(input.split("\\*"));
+            }
         }
         else {
-            return null;
+            result = new ExactMatchHelper(input);
         }
-        if (Debug.verbose) {
-            Debug.log("Event regex compile: " + output);
-        }
-        result = Pattern.compile(output);
-        knownPatterns.put(input, result);
+        knownMatchers.put(input, result);
         return result;
     }
 
-    public static boolean equalityCheck(String input, String compared, Pattern regexed) {
-        input = CoreUtilities.toLowerCase(input);
-        return input.equals(compared) || (regexed != null && regexed.matcher(input).matches());
-    }
-
-    public boolean runGenericCheck(String inputValue, String trueValue) {
-        if (inputValue != null) {
-            trueValue = CoreUtilities.toLowerCase(trueValue);
-            inputValue = CoreUtilities.toLowerCase(inputValue);
-            if (inputValue.equals(trueValue)) {
-                return true;
-            }
-            Pattern regexd = regexHandle(inputValue);
-            if (!equalityCheck(trueValue, inputValue, regexd)) {
-                return false;
-            }
+    public boolean runGenericCheck(String matchableValue, String trueValue) {
+        if (matchableValue == null) {
+            return false;
         }
-        return true;
+        matchableValue = CoreUtilities.toLowerCase(matchableValue);
+        trueValue = CoreUtilities.toLowerCase(trueValue);
+        MatchHelper matcher = createMatcher(matchableValue);
+        return matcher.doesMatch(trueValue);
     }
 
     public boolean runGenericSwitchCheck(ScriptPath path, String switchName, String value) {
         String with = path.switches.get(switchName);
-        if (with != null) {
-            if (value == null) {
-                return false;
-            }
-            value = CoreUtilities.toLowerCase(value);
-            with = CoreUtilities.toLowerCase(with);
-            if (with.equals(value)) {
-                return true;
-            }
-            Pattern regexd = regexHandle(with);
-            if (!equalityCheck(value, with, regexd)) {
-                return false;
-            }
+        if (with == null) {
+            return true;
         }
-        return true;
+        if (value == null) {
+            return false;
+        }
+        with = CoreUtilities.toLowerCase(with);
+        value = CoreUtilities.toLowerCase(value);
+        MatchHelper matcher = createMatcher(with);
+        return matcher.doesMatch(value);
     }
 }

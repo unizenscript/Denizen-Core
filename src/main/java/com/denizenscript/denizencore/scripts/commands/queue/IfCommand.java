@@ -2,6 +2,7 @@ package com.denizenscript.denizencore.scripts.commands.queue;
 
 import com.denizenscript.denizencore.exceptions.InvalidArgumentsException;
 import com.denizenscript.denizencore.scripts.commands.Comparable;
+import com.denizenscript.denizencore.utilities.CoreUtilities;
 import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.DenizenCore;
@@ -20,6 +21,7 @@ public class IfCommand extends BracedCommand {
         setSyntax("if [<value>] (!)(<operator> <value>) (&&/|| ...) [<commands>]");
         setRequiredArguments(1, -1);
         setParseArgs(false);
+        isProcedural = true;
     }
 
     // <--[command]
@@ -115,7 +117,7 @@ public class IfCommand extends BracedCommand {
         }
         else {
             for (String arg : scriptEntry.getArguments()) {
-                if (arg.equalsIgnoreCase("{")) {
+                if (arg.equals("{")) {
                     if (Debug.verbose) {
                         Debug.log("Has_brace = true");
                     }
@@ -134,10 +136,10 @@ public class IfCommand extends BracedCommand {
         List<String> elsecommand = new ArrayList<>();
         List<String> comparisons = new ArrayList<>();
         for (String arg : scriptEntry.getArguments()) {
-            if (arg.equalsIgnoreCase("{")) {
+            if (arg.equals("{")) {
                 break;
             }
-            if (!has_brace && in_subcommand && arg.equalsIgnoreCase("else")) {
+            if (!has_brace && in_subcommand && CoreUtilities.equalsIgnoreCase(arg, "else")) {
                 in_elsecommand = true;
                 in_subcommand = false;
             }
@@ -215,12 +217,12 @@ public class IfCommand extends BracedCommand {
                         Debug.log("Trying: " + braceSet.key);
                     }
                     List<String> key = braceSet.args;
-                    if (key.isEmpty() || !key.get(0).equalsIgnoreCase("else")) {
+                    if (key.isEmpty() || !CoreUtilities.equalsIgnoreCase(key.get(0), "else")) {
                         Debug.echoError("If command has argument '" + key.get(0) + "' which is unknown.");
                         continue;
                     }
                     if (key.size() > 1) {
-                        if (!key.get(1).equalsIgnoreCase("if")) {
+                        if (!CoreUtilities.equalsIgnoreCase(key.get(1), "if")) {
                             Debug.echoError("Else command has argument '" + key.get(1) + "' which is unknown.");
                             continue;
                         }
@@ -470,7 +472,7 @@ public class IfCommand extends BracedCommand {
             }
             for (int i = 0; i < args.size(); i++) {
                 String arg = procStringNoTag(args.get(i));
-                if (arg.equalsIgnoreCase("||")) {
+                if (arg.equals("||")) {
                     List beforeargs = new ArrayList(i);
                     for (int x = 0; x < i; x++) {
                         beforeargs.add(args.get(x));
@@ -492,7 +494,7 @@ public class IfCommand extends BracedCommand {
                     }
                     return comp;
                 }
-                else if (arg.equalsIgnoreCase("&&")) {
+                else if (arg.equals("&&")) {
                     List beforeargs = new ArrayList(i);
                     for (int x = 0; x < i; x++) {
                         beforeargs.add(args.get(x));

@@ -3,7 +3,6 @@ package com.denizenscript.denizencore.tags.core;
 import com.denizenscript.denizencore.tags.TagRunnable;
 import com.denizenscript.denizencore.objects.core.ScriptTag;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
-import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.tags.Attribute;
 import com.denizenscript.denizencore.tags.ReplaceableTagEvent;
@@ -18,23 +17,20 @@ public class ScriptTagBase {
         // @returns ScriptTag
         // @description
         // Returns a script object constructed from the input value.
+        // Refer to <@link language ScriptTag objects>.
         // -->
         TagManager.registerTagHandler(new TagRunnable.RootForm() {
             @Override
             public void run(ReplaceableTagEvent event) {
                 scriptTags(event);
             }
-        }, "script", "s");
+        }, "script");
     }
 
     public void scriptTags(ReplaceableTagEvent event) {
 
-        if (!event.matches("script", "s") || event.replaced()) {
+        if (!event.matches("script") || event.replaced()) {
             return;
-        }
-
-        if (event.matches("s")) {
-            Deprecations.scriptShorthand.warn(event.getScriptEntry());
         }
 
         // Stage the location

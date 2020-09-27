@@ -18,18 +18,10 @@ public class Deprecations {
     // ==================== Tag shorthands ====================
     // ====== All added on 2019/02/06 ======
     // Note: context was most often used, and needs to remain longer than the others.
-    public static Warning contextShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'context' instead of 'c' as a root tag.");
-    public static Warning entryShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'entry' instead of 'e' as a root tag.");
-    public static Warning defShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'def' instead of 'd' as a root tag.");
-    public static Warning procShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'proc' instead of 'pr' as a root tag.");
-    public static Warning queueShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'queue' instead of 'q' as a root tag.");
-    public static Warning scriptShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'script' instead of 's' as a root tag.");
+    public static Warning contextShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'context' instead of 'c' as a root tag.");
+    public static Warning entryShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'entry' instead of 'e' as a root tag.");
     public static Warning ternShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'tern' instead of 't' as a root tag.");
-    public static Warning utilShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'util' instead of 'u' as a root tag.");
     // In Bukkit impl:
-    public static Warning playerShorthand = new SlowWarning("Short-named tags are hard to read. Please use 'player' instead of 'pl' as a root tag.");
-    public static Warning locationShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'location' instead of 'l' as a root tag.");
-    public static Warning serverShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'server' instead of 'svr' as a root tag.");
     public static Warning schematicShorthand = new StrongWarning("Short-named tags are hard to read. Please use 'schematic' instead of 'schem' as a root tag.");
     // ==================== End tag shorthands ====================
 
@@ -41,16 +33,13 @@ public class Deprecations {
     public static Warning boundWarning = new StrongWarning("Item script 'bound' functionality has never been reliable and should not be used. Consider replicating the concept with world events.");
 
     // Added on 2019/07/13
-    public static Warning oldEscapeTags = new SlowWarning("'escape:' tags are deprecated. Please use '.escaped' element tags instead.");
-
-    // In Bukkit impl, Added on 2019/07/25
-    public static Warning oldStylePlayerBreaksItemEvent = new StrongWarning("Event 'player breaks <item>' is old. Use 'player breaks held <item>' instead (this is to prevent conflict with breaks block)");
+    public static Warning oldEscapeTags = new StrongWarning("'escape:' tags are deprecated. Please use '.escaped' element tags instead.");
 
     // In Bukkit impl, Added on 2019/08/11
-    public static Warning oldEconomyTags = new SlowWarning("player.money.currency* tags are deprecated in favor of server.economy.currency* tags.");
+    public static Warning oldEconomyTags = new StrongWarning("player.money.currency* tags are deprecated in favor of server.economy.currency* tags.");
 
     // In Bukkit impl, Added on 2019/08/19
-    public static Warning pointlessTextTags = new SlowWarning("Several text tags like '&dot' or '&cm' are pointless (there's no reason you can't just directly write them in). Please replace them with the actual intended text.");
+    public static Warning pointlessTextTags = new StrongWarning("Several text tags like '&dot' or '&cm' are pointless (there's no reason you can't just directly write them in). Please replace them with the actual intended text.");
 
     // Added on 2019/08/27
     // Prime candidate for functionality removal - hasn't been useful for several years.
@@ -58,7 +47,7 @@ public class Deprecations {
 
     // Added on 2019/09/13
     // Bad candidate for functionality removal - used to be commonly used
-    public static Warning elementAsIntTag = new SlowWarning("'element.as_int' tag is deprecated: use '.round', '.round_down', or '.round_up'.");
+    public static Warning elementAsIntTag = new StrongWarning("'element.as_int' tag is deprecated: use '.round', '.round_down', or '.round_up'.");
 
     // In Bukkit impl, Added on 2019/09/18, but was deprecated earlier.
     public static Warning worldContext = new StrongWarning("'context.world' in events containing a location or chunk context is deprecated: use 'context.location.world' or similar to get the world value.");
@@ -69,7 +58,7 @@ public class Deprecations {
     public static Warning serverRedirectLogging = new StrongWarning("server mechanism redirect_logging is deprecated: use the system mechanism by the same name.");
 
     // In Bukkit impl, Added on 2019/09/25, but was deprecated earlier.
-    public static Warning qtyTags = new SlowWarning("'qty' in a tag is deprecated: use 'quantity'.");
+    public static Warning qtyTags = new StrongWarning("'qty' in a tag is deprecated: use 'quantity'.");
     public static Warning playerStepTag = new StrongWarning("'player.current_step[script]' tag is deprecated: use 'script.step[player]'.");
     public static Warning playerGamemodeTag = new StrongWarning("player.gamemode.id tag is deprecated: IDs are no longer in use. Use the player.gamemode (named) tag.");
 
@@ -165,15 +154,34 @@ public class Deprecations {
     // In Bukkit impl, Added 2020/05/21.
     public static Warning itemSkinFullTag = new SlowWarning(pointlessSubtagPrefix + "item.skin.full is now item.skull_skin.");
 
-    // ==================== SPECIAL deprecations: Minecraft version ====================
+    // In Bukkit impl, Added 2020/06/03 but deprecated long ago.
+    public static Warning oldBossBarMech = new SlowWarning("The show_boss_bar mechanism is deprecated: use the bossbar command instead.");
+    public static Warning oldTimeMech = new SlowWarning("The player.*time mechanisms are deprecated: use the time command instead.");
+    public static Warning oldWeatherMech = new SlowWarning("The player.*weather mechanisms are deprecated: use the weather command instead.");
+    public static Warning oldKickMech = new SlowWarning("The player.kick mechanism is deprecated: use the kick command instead.");
+    public static Warning oldMoneyMech = new SlowWarning("The player.money mechanism is deprecated: use the money command instead.");
 
-    // In Bukit impl, To be removed when Minecraft 1.12.2 is no longer supported by the Bukkit impl:
-    public static Warning materialIds = new StrongWarning("Material ID and data magic number support is deprecated and WILL be removed in a future release.");
-    public static Warning materialIdsSuggestProperties = new StrongWarning("Material ID and data magic number support is deprecated and WILL be removed in a future release. Use relevant properties instead.");
-    public static Warning materialIdsSuggestNames = new StrongWarning("Material ID and data magic number support is deprecated and WILL be removed in a future release. Use material names instead.");
-    public static Warning skullSkinMaterials = new StrongWarning("As of Minecraft version 1.13 you may only set the skin of a PLAYER_HEAD or PLAYER_WALL_HEAD.");
-    public static Warning flowerpotMechanism = new StrongWarning("As of Minecraft version 1.13 potted flowers each have their own material, such as POTTED_CACTUS.");
-    public static Warning fullTags = new StrongWarning("As of Minecraft version 1.13 '.full' tags are unneeded. Remove the '.full' from the tag, and leave it otherwise the same.");
+    // Added 2020/06/13.
+    public static Warning scriptConstantTag = new SlowWarning("The script.constant system has been deprecated in favor of just using data_key.");
+
+    // In Bukkit impl, added 2020/07/04.
+    public static Warning cuboidFullTag = new SlowWarning("The tag cuboid.full is deprecated: this should just never be used.");
+    public static Warning furnaceTimeTags = new SlowWarning("The furnace_burn_time, cook time, and cook total time tag/mechs have been replaced by _duration instead of _time equivalents (using DurationTag now).");
+    public static Warning playerTimePlayedTags = new SlowWarning("The tags player.first_played, last_played, ban_expiration, and ban_created have been replaced by tags of the same name with '_time' added to the end (using TimeTag now).");
+
+    // In Bukkit impl, added 2020/07/19.
+    public static Warning airLevelEventDuration = new SlowWarning("The 'entity changes air level' event uses 'air_duration' context now instead of the old tick count number.");
+    public static Warning damageEventTypeMap = new SlowWarning("The 'entity damaged' context 'damage_[TYPE]' is deprecated in favor of 'damage_type_map', which is operated as a MapTag.");
+
+    // In Bukkit impl, added 2020/07/28.
+    public static Warning headCommand = new SlowWarning("The 'head' command is deprecated: use the 'equip' command with a 'player_head' item using the 'skull_skin' mechanism.");
+
+    // In Bukkit impl, added 2020/08/01.
+    public static Warning entityRemoveWhenFar = new SlowWarning("The EntityTag remove_when_far_away property is deprecated in favor of the persistent property (which is the exact inverse).");
+    public static Warning entityPlayDeath = new SlowWarning("The EntityTag 'play_death' mechanism is deprecated: use the animate command.");
+
+    // In Bukkit impl, added 2020/08/19.
+    public static Warning npcSpawnMechanism = new SlowWarning("The NPCTag 'spawn' mechanism is deprecated: use the spawn command.");
 
     // ==================== FUTURE deprecations ====================
 
@@ -205,8 +213,26 @@ public class Deprecations {
     public static Warning flagIsExpiredTag = new FutureWarning(pointlessSubtagPrefix + "'flag[...].is_expired' is deprecated: use 'has_flag[...]' instead.");
     public static Warning flagExpirationTag = new FutureWarning(pointlessSubtagPrefix + "'flag[...].expiration' is deprecated: use 'flag_expiration[...]' instead.");
 
+    // Added 2020/05/29, deprecate officially by 2022.
+    public static Warning listOldMapTags = new FutureWarning("Old list.map_* tags are deprecated: use the modern MapTag options instead.");
+
     // In Bukkit impl, Added 2020/04/19, Relevant for many years now, deprecate officially by 2023.
     public static Warning interactScriptPriority = new FutureWarning("Assignment script 'interact scripts' section should not have numbered priority values, these were removed years ago. Check https://guide.denizenscript.com/guides/troubleshooting/updates-since-videos.html#assignment-script-updates for more info.");
+
+    // Added 2020/06/13, deprecate officially by 2022.
+    public static Warning yamlDataContainer = new FutureWarning("'yaml data' containers are now just called 'data' containers.");
+
+    // In Bukkit impl, Added 2020/06/13, deprecate officially by 2022.
+    public static Warning listStyleTags = new FutureWarning("'list_' tags are deprecated: just remove the 'list_' prefix.");
+
+    // In Bukkit impl, Added 2020/07/03, deprecate officially by 2022.
+    public static Warning attachToMech = new FutureWarning("The entity 'attach_to' mechanism is deprecated: use the new 'attach' command instead!");
+
+    // In Bukkit impl, Added 2020/07/12, deprecate officially by 2022.
+    public static Warning entityEquipmentSubtags = new FutureWarning(pointlessSubtagPrefix + " 'entity.equipment.slotname' is deprecated: use 'entity.equipment_map.get[slotname]' instead.");
+
+    // Added 2020/07/23, deprecate officially by 2022.
+    public static Warning defExistsTag = new FutureWarning("The def[].exists tag is deprecated: use a fallback and null check, or just set definitions more consistently.");
 
     // ==================== PAST deprecations of things that are already gone but still have a warning left behind ====================
 

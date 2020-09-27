@@ -16,6 +16,7 @@ public class QueueCommand extends AbstractCommand {
         setName("queue");
         setSyntax("queue (<queue>) [clear/stop/pause/resume/delay:<duration>]");
         setRequiredArguments(1, 2);
+        isProcedural = true; //  TODO: Should be false, but historical '- queue clear' usage might apply
     }
 
     // <--[command]
@@ -52,7 +53,7 @@ public class QueueCommand extends AbstractCommand {
     // <queue.list>
     // <queue.stats>
     // <queue.exists[queue_id]>
-    // <ScriptTag.list_queues>
+    // <ScriptTag.queues>
     //
     // @Usage
     // Use to force-stop a given queue.
@@ -120,6 +121,11 @@ public class QueueCommand extends AbstractCommand {
         QueueTag queue = scriptEntry.getObjectTag("queue");
         Action action = (Action) scriptEntry.getObject("action");
         DurationTag delay = scriptEntry.getObjectTag("delay");
+
+        if (scriptEntry.getResidingQueue().procedural && !queue.getQueue().id.equals(scriptEntry.getResidingQueue().id)) {
+            Debug.echoError("Cannot modify other queues from a procedural queue.");
+            return;
+        }
 
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(), queue.debug()

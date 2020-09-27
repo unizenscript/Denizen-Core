@@ -7,7 +7,7 @@
     <groupId>dev.unizen</groupId>
     <artifactId>denizencore</artifactId>
     <packaging>jar</packaging>
-    <version>1.80-SNAPSHOT</version>
+    <version>1.90-SNAPSHOT</version>
     <name>DenizenCore</name>
     <description>A powerful scripting engine for Java-based games</description>
 
@@ -22,7 +22,7 @@
         <repository>
             <id>Sonatype-public</id>
             <name>SnakeYAML repository</name>
-            <url>http://repo1.maven.org/maven2/</url>
+            <url>https://repo1.maven.org/maven2/</url>
             <!-- <url>http://oss.sonatype.org/content/groups/public/</url> -->
         </repository>
         <repository>

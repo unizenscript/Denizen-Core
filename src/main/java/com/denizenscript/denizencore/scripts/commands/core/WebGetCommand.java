@@ -5,31 +5,38 @@ import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.DurationTag;
 import com.denizenscript.denizencore.objects.core.ElementTag;
 import com.denizenscript.denizencore.objects.core.ListTag;
+import com.denizenscript.denizencore.objects.core.MapTag;
 import com.denizenscript.denizencore.scripts.commands.AbstractCommand;
 import com.denizenscript.denizencore.scripts.commands.Holdable;
+import com.denizenscript.denizencore.utilities.CoreUtilities;
+import com.denizenscript.denizencore.utilities.ReflectionHelper;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.utilities.scheduling.Schedulable;
 import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
+import com.denizenscript.denizencore.utilities.text.StringHolder;
 
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 
 public class WebGetCommand extends AbstractCommand implements Holdable {
 
     public WebGetCommand() {
         setName("webget");
-        setSyntax("webget [<url>] (post:<data>) (headers:<header>/<value>|...) (timeout:<duration>/{10s}) (savefile:<path>)");
-        setRequiredArguments(1, 6);
+        setSyntax("webget [<url>] (post:<data>) (headers:<header>/<value>|...) (timeout:<duration>/{10s}) (savefile:<path>) (hide_failure)");
+        setRequiredArguments(1, 7);
+        isProcedural = false;
     }
 
     // <--[command]
     // @Name Webget
-    // @Syntax webget [<url>] (data:<data>) (method:<method>) (headers:<header>/<value>|...) (timeout:<duration>/{10s}) (savefile:<path>)
+    // @Syntax webget [<url>] (data:<data>) (method:<method>) (headers:<header>/<value>|...) (timeout:<duration>/{10s}) (savefile:<path>) (hide_failure)
     // @Required 1
-    // @Maximum 6
+    // @Maximum 7
     // @Short Gets the contents of a web page or API response.
     // @Group core
     //
@@ -44,18 +51,22 @@ public class WebGetCommand extends AbstractCommand implements Holdable {
     // Optionally, use "data:<data>" to specify a set of data to send to the server (changes the default method from GET to POST).
     //
     // Optionally, use "method:<method>" to specify the HTTP method to use in your request.
+    // Can be: GET, POST, HEAD, OPTIONS, PUT, DELETE, TRACE.
     //
-    // Optionally, use "headers:" to specify a list of headers using a ListTag of key/value pairs separated by slashes.
+    // Optionally, use "headers:" to specify a MapTag of headers.
     //
     // Optionally, use "savefile:" to specify a path to save the retrieved file to.
     // This will remove the 'result' entry savedata.
     // Path is relative to server base directory.
     //
-    // Specify the "timeout:" to set how long the command should wait for a webpage to load before giving up. Defaults to 10 seconds.
+    // Optionally, specify the "timeout:" to set how long the command should wait for a webpage to load before giving up. Defaults to 10 seconds.
+    //
+    // Optionally, specify 'hide_failure' to indicate that connection errors are acceptable and shouldn't display in logs.
     //
     // @Tags
     // <entry[saveName].failed> returns whether the webget failed. A failure occurs when the status is not 2XX/3XX or webget failed to connect.
     // <entry[saveName].result> returns the result of the webget. This is null only if webget failed to connect to the url.
+    // <entry[saveName].result_headers> returns a MapTag of the headers returned from the webserver. Every value in the result is a list.
     // <entry[saveName].status> returns the HTTP status code of the webget. This is null only if webget failed to connect to the url.
     // <entry[saveName].time_ran> returns a DurationTag indicating how long the web connection processing took.
     // <ElementTag.url_encode>
@@ -71,7 +82,7 @@ public class WebGetCommand extends AbstractCommand implements Holdable {
     //
     // @Usage
     // Use to post data to a server.
-    // - ~webget https://api.mojang.com/orders/statistics 'data:{"metricKeys":["item_sold_minecraft"]}' "headers:Content-type/application/json" save:request
+    // - ~webget https://api.mojang.com/orders/statistics 'data:{"metricKeys":["item_sold_minecraft"]}' headers:<map.with[Content-Type].as[application/json]> save:request
     // - narrate <entry[request].result>
     //
     // @Usage
@@ -83,86 +94,88 @@ public class WebGetCommand extends AbstractCommand implements Holdable {
 
     @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
-
         for (Argument arg : scriptEntry.getProcessedArgs()) {
-
             if (!scriptEntry.hasObject("url")) {
                 scriptEntry.addObject("url", new ElementTag(arg.raw_value));
             }
-
             else if (!scriptEntry.hasObject("data")
                     && arg.matchesPrefix("data", "post")) {
                 scriptEntry.addObject("data", arg.asElement());
             }
-
             else if (!scriptEntry.hasObject("method")
                     && arg.matchesPrefix("method")
                     && arg.matches("get", "post", "head", "options", "put", "delete", "trace")) {
                 scriptEntry.addObject("method", arg.asElement());
             }
-
+            else if (!scriptEntry.hasObject("hide_failure")
+                    && arg.matches("hide_failure")) {
+                scriptEntry.addObject("hide_failure", new ElementTag(true));
+            }
             else if (!scriptEntry.hasObject("timeout")
                     && arg.matchesPrefix("timeout", "t")
                     && arg.matchesArgumentType(DurationTag.class)) {
                 scriptEntry.addObject("timeout", arg.asType(DurationTag.class));
             }
-
+            else if (!scriptEntry.hasObject("headers")
+                    && arg.matchesPrefix("headers")
+                    && arg.getValue().startsWith("map@")) {
+                scriptEntry.addObject("headers", arg.asType(MapTag.class));
+            }
             else if (!scriptEntry.hasObject("headers")
                     && arg.matchesPrefix("headers")) {
-                scriptEntry.addObject("headers", arg.asType(ListTag.class));
+                MapTag map = new MapTag();
+                for (String str : arg.asType(ListTag.class)) {
+                    int ind = str.indexOf('/');
+                    if (ind > 0) {
+                        map.putObject(str.substring(0, ind), new ElementTag(str.substring(ind + 1)));
+                    }
+                }
+                scriptEntry.addObject("headers", map);
             }
-
             else if (!scriptEntry.hasObject("savefile")
                     && arg.matchesPrefix("savefile")) {
                 scriptEntry.addObject("savefile", arg.asElement());
             }
-
             else {
                 arg.reportUnhandled();
             }
         }
-
         if (!scriptEntry.hasObject("url")) {
             throw new InvalidArgumentsException("Must have a valid URL!");
         }
-
         ElementTag url = scriptEntry.getElement("url");
         if (!url.asString().startsWith("http://") && !url.asString().startsWith("https://")) {
             throw new InvalidArgumentsException("Must have a valid (HTTP/HTTPS) URL! Attempted: " + url.asString());
         }
-
         scriptEntry.defaultObject("timeout", new DurationTag(10));
-
     }
 
     @Override
     public void execute(final ScriptEntry scriptEntry) {
-
         if (!DenizenCore.getImplementation().allowedToWebget()) {
             Debug.echoError(scriptEntry.getResidingQueue(), "WebGet disabled by config!");
             return;
         }
-
         final ElementTag url = scriptEntry.getElement("url");
         final ElementTag data = scriptEntry.getElement("data");
         final ElementTag method = scriptEntry.getElement("method");
         final DurationTag timeout = scriptEntry.getObjectTag("timeout");
-        final ListTag headers = scriptEntry.getObjectTag("headers");
+        final MapTag headers = scriptEntry.getObjectTag("headers");
         final ElementTag saveFile = scriptEntry.getElement("savefile");
-
+        final ElementTag hideFailure = scriptEntry.getElement("hide_failure");
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(), url.debug()
                             + (data != null ? data.debug() : "")
                             + (method != null ? method.debug() : "")
                             + (timeout != null ? timeout.debug() : "")
                             + (saveFile != null ? saveFile.debug() : "")
+                            + (hideFailure != null ? hideFailure.debug() : "")
                             + (headers != null ? headers.debug() : ""));
         }
-
         Thread thr = new Thread(new Runnable() {
             @Override
             public void run() {
-                webGet(scriptEntry, data, method, url, timeout, headers, saveFile);
+                webGet(scriptEntry, data, method, url, timeout, headers, saveFile, hideFailure);
             }
         });
         thr.start();
@@ -201,7 +214,27 @@ public class WebGetCommand extends AbstractCommand implements Holdable {
         }
     }
 
-    public void webGet(final ScriptEntry scriptEntry, final ElementTag data, ElementTag method, ElementTag urlp, DurationTag timeout, ListTag headers, ElementTag saveFile) {
+    public static boolean patchAlreadyPatched = false;
+
+    /**
+     * This fixes the methods field in HttpURLConnection class to support the PATCH method.
+     * I named this fix method this way because the name deserves to be as stupid as the concept.
+     */
+    public static void patchPatchMethodMethodsField() {
+        if (patchAlreadyPatched) {
+            return;
+        }
+        patchAlreadyPatched = true;
+        String[] methods = ReflectionHelper.getFieldValue(HttpURLConnection.class, "methods", null);
+        String[] outMethods = new String[methods.length + 1];
+        for (int i = 0; i < methods.length; i++) {
+            outMethods[i] = methods[i];
+        }
+        outMethods[methods.length] = "PATCH";
+        ReflectionHelper.setFieldValue(HttpURLConnection.class, "methods", null, outMethods);
+    }
+
+    public void webGet(final ScriptEntry scriptEntry, final ElementTag data, ElementTag method, ElementTag urlp, DurationTag timeout, MapTag headers, ElementTag saveFile, ElementTag hideFailure) {
         BufferedReader buffIn = null;
         HttpURLConnection uc = null;
         try {
@@ -211,17 +244,17 @@ public class WebGetCommand extends AbstractCommand implements Holdable {
             uc.setDoInput(true);
             uc.setDoOutput(true);
             if (method != null) {
+                if (CoreUtilities.equalsIgnoreCase(method.asString(), "patch")) {
+                    patchPatchMethodMethodsField();
+                }
                 uc.setRequestMethod(method.asString().toUpperCase());
             }
             else if (data != null) {
                 uc.setRequestMethod("POST");
             }
             if (headers != null) {
-                for (String str : headers) {
-                    int ind = str.indexOf('/');
-                    if (ind > 0) {
-                        uc.setRequestProperty(str.substring(0, ind), str.substring(ind + 1));
-                    }
+                for (Map.Entry<StringHolder, ObjectTag> pair : headers.map.entrySet()) {
+                    uc.setRequestProperty(pair.getKey().str, pair.getValue().toString());
                 }
             }
             uc.setConnectTimeout((int) timeout.getMillis());
@@ -229,7 +262,6 @@ public class WebGetCommand extends AbstractCommand implements Holdable {
             if (data != null) {
                 uc.getOutputStream().write(data.asString().getBytes(StandardCharsets.UTF_8));
             }
-
             final int status = uc.getResponseCode();
             final StringBuilder sb = new StringBuilder();
             if (saveFile != null) {
@@ -241,8 +273,15 @@ public class WebGetCommand extends AbstractCommand implements Holdable {
                 buffIn.close();
                 buffIn = null;
             }
+            MapTag resultHeaders = new MapTag();
+            for (Map.Entry<String, List<String>> header : uc.getHeaderFields().entrySet()) {
+                String key = header.getKey();
+                if (key == null) {
+                    key = "null";
+                }
+                resultHeaders.putObject(key, new ListTag(header.getValue()));
+            }
             final long timeDone = System.currentTimeMillis();
-
             DenizenCore.schedule(new Schedulable() {
                 @Override
                 public boolean tick(float seconds) {
@@ -250,28 +289,34 @@ public class WebGetCommand extends AbstractCommand implements Holdable {
                     scriptEntry.addObject("failed", new ElementTag(status >= 200 && status < 400 ? "false" : "true"));
                     if (saveFile == null) {
                         scriptEntry.addObject("result", new ElementTag(sb.toString()));
+                        scriptEntry.addObject("result_headers", resultHeaders);
                     }
-                    scriptEntry.addObject("time_ran", new DurationTag(timeDone / 1000.0));
+                    scriptEntry.addObject("time_ran", new DurationTag((timeDone - timeStart) / 1000.0));
                     scriptEntry.setFinished(true);
                     return false;
                 }
             });
         }
         catch (Exception e) {
+            if (hideFailure == null || !hideFailure.asBoolean()) {
+                Debug.echoError(e);
+            }
             int tempStatus = -1;
             final StringBuilder sb = new StringBuilder();
-
             if (uc != null) {
                 try {
                     tempStatus = uc.getResponseCode();
-                    if (saveFile != null) {
-                        writeToFile(uc.getErrorStream(), saveFile);
-                    }
-                    else {
-                        buffIn = new BufferedReader(new InputStreamReader(uc.getErrorStream()));
-                        buildResult(buffIn, sb);
-                        buffIn.close();
-                        buffIn = null;
+                    InputStream errorStream = uc.getErrorStream();
+                    if (errorStream != null) {
+                        if (saveFile != null) {
+                            writeToFile(errorStream, saveFile);
+                        }
+                        else {
+                            buffIn = new BufferedReader(new InputStreamReader(errorStream));
+                            buildResult(buffIn, sb);
+                            buffIn.close();
+                            buffIn = null;
+                        }
                     }
                 }
                 catch (Exception e2) {
@@ -279,9 +324,10 @@ public class WebGetCommand extends AbstractCommand implements Holdable {
                 }
             }
             else {
-                Debug.echoError(e);
+                if (hideFailure != null && hideFailure.asBoolean()) {
+                    Debug.echoError(e);
+                }
             }
-
             final int status = tempStatus;
             DenizenCore.schedule(new Schedulable() {
                 @Override

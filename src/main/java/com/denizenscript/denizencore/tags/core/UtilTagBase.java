@@ -30,16 +30,12 @@ public class UtilTagBase {
             public void run(ReplaceableTagEvent event) {
                 utilTag(event);
             }
-        }, "util", "u");
+        }, "util");
     }
 
     public void utilTag(ReplaceableTagEvent event) {
-        if (!event.matches("util", "u")) {
+        if (!event.matches("util")) {
             return;
-        }
-
-        if (event.matches("u")) {
-            Deprecations.utilShorthand.warn(event.getScriptEntry());
         }
 
         Attribute attribute = event.getAttributes().fulfill(1);
@@ -109,7 +105,7 @@ public class UtilTagBase {
 
             // <--[tag]
             // @attribute <util.random.decimal>
-            // @returns ElementTag
+            // @returns ElementTag(Decimal)
             // @description
             // Returns a random decimal number from 0 to 1
             // -->
@@ -120,7 +116,7 @@ public class UtilTagBase {
 
             // <--[tag]
             // @attribute <util.random.gauss>
-            // @returns ElementTag
+            // @returns ElementTag(Decimal)
             // @description
             // Returns a random decimal number with a gaussian distribution.
             // 70% of all results will be within the range of -1 to 1.
@@ -188,8 +184,68 @@ public class UtilTagBase {
         }
 
         // <--[tag]
+        // @attribute <util.short_max>
+        // @returns ElementTag(Number)
+        // @description
+        // Returns the maximum value of a 16 bit signed integer (a java 'short'): 32767
+        // -->
+        else if (attribute.startsWith("short_max")) {
+            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Short.MAX_VALUE), attribute.fulfill(1)));
+        }
+
+        // <--[tag]
+        // @attribute <util.short_min>
+        // @returns ElementTag(Number)
+        // @description
+        // Returns the minimum value of a 16 bit signed integer (a java 'short'): -32768
+        // -->
+        else if (attribute.startsWith("short_min")) {
+            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Short.MIN_VALUE), attribute.fulfill(1)));
+        }
+
+        // <--[tag]
+        // @attribute <util.int_max>
+        // @returns ElementTag(Number)
+        // @description
+        // Returns the maximum value of a 32 bit signed integer (a java 'int'): 2147483647
+        // -->
+        else if (attribute.startsWith("int_max")) {
+            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Integer.MAX_VALUE), attribute.fulfill(1)));
+        }
+
+        // <--[tag]
+        // @attribute <util.int_min>
+        // @returns ElementTag(Number)
+        // @description
+        // Returns the minimum value of a 32 bit signed integer (a java 'int'): -2147483648
+        // -->
+        else if (attribute.startsWith("int_min")) {
+            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Integer.MIN_VALUE), attribute.fulfill(1)));
+        }
+
+        // <--[tag]
+        // @attribute <util.long_max>
+        // @returns ElementTag(Number)
+        // @description
+        // Returns the maximum value of a 64 bit signed integer (a java 'long'): 9223372036854775807
+        // -->
+        else if (attribute.startsWith("long_max")) {
+            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Long.MAX_VALUE), attribute.fulfill(1)));
+        }
+
+        // <--[tag]
+        // @attribute <util.long_min>
+        // @returns ElementTag(Number)
+        // @description
+        // Returns the minimum value of a 64 bit signed integer (a java 'long'): -9223372036854775808
+        // -->
+        else if (attribute.startsWith("long_min")) {
+            event.setReplacedObject(CoreUtilities.autoAttrib(new ElementTag(Long.MIN_VALUE), attribute.fulfill(1)));
+        }
+
+        // <--[tag]
         // @attribute <util.pi>
-        // @returns ElementTag
+        // @returns ElementTag(Decimal)
         // @description
         // Returns PI: 3.14159265358979323846
         // -->
@@ -199,7 +255,7 @@ public class UtilTagBase {
 
         // <--[tag]
         // @attribute <util.tau>
-        // @returns ElementTag
+        // @returns ElementTag(Decimal)
         // @description
         // Returns Tau: 6.28318530717958647692
         // -->
@@ -209,7 +265,7 @@ public class UtilTagBase {
 
         // <--[tag]
         // @attribute <util.e>
-        // @returns ElementTag
+        // @returns ElementTag(Decimal)
         // @description
         // Returns e: 2.7182818284590452354
         // -->
@@ -235,7 +291,7 @@ public class UtilTagBase {
         // Returns a list of all currently loaded Denizen tag bases (including "player", "context", "util", "server", etc).
         // -->
         else if (attribute.startsWith("list_tag_bases")) {
-            ListTag result = new ListTag(TagManager.handlers.keySet());
+            ListTag result = new ListTag(TagManager.rootFormHandlers.keySet());
             event.setReplacedObject(CoreUtilities.autoAttrib(result, attribute.fulfill(1)));
         }
 

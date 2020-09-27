@@ -86,18 +86,6 @@ public class ScriptContainer implements Debuggable {
         return contents;
     }
 
-    /**
-     * Casts this container to a specify type of script container. Must be a valid
-     * container type of the type casting to.
-     *
-     * @param type the class of the ScriptContainer casting to
-     * @param <T>  the ScriptContainer object
-     * @return a ScriptContainer of the type specified
-     */
-    public <T extends ScriptContainer> T getAsContainerType(Class<T> type) {
-        return type.cast(this);
-    }
-
     // <--[language]
     // @name Script Name
     // @group Script Container System
@@ -160,7 +148,7 @@ public class ScriptContainer implements Debuggable {
      * @return a ScriptTag object linking this script container.
      */
     public ScriptTag getAsScriptArg() {
-        return ScriptTag.valueOf(name);
+        return new ScriptTag(this);
     }
 
     // <--[language]
@@ -291,7 +279,7 @@ public class ScriptContainer implements Debuggable {
                 shouldDebug = DenizenCore.getImplementation().getDefaultDebugMode();
             }
             else {
-                shouldDebug = !contents.getString("debug").equalsIgnoreCase("false");
+                shouldDebug = !CoreUtilities.equalsIgnoreCase(contents.getString("debug"), "false");
             }
         }
         return shouldDebug;

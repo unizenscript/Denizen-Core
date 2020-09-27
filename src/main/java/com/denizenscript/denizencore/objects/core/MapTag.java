@@ -7,13 +7,13 @@ import com.denizenscript.denizencore.tags.TagContext;
 import com.denizenscript.denizencore.tags.TagRunnable;
 import com.denizenscript.denizencore.utilities.AsciiMatcher;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
+import com.denizenscript.denizencore.utilities.NaturalOrderComparator;
 import com.denizenscript.denizencore.utilities.YamlConfiguration;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.utilities.text.StringHolder;
 import org.json.JSONObject;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 public class MapTag implements ObjectTag, Adjustable {
 
@@ -38,7 +38,7 @@ public class MapTag implements ObjectTag, Adjustable {
     //
     // If the pipe symbol "|" appears in a key or value, it will be replaced by "&pipe",
     // a slash "/" will become "&fs", and an ampersand "&" will become "&amp".
-    // This is a subset of Denizen standard escaping, see <@link language property escaping>.
+    // This is a subset of Denizen standard escaping, see <@link language Escape Tags>.
     //
     // -->
 
@@ -58,29 +58,21 @@ public class MapTag implements ObjectTag, Adjustable {
         return value.replace("&fs", "/").replace("&pipe", "|").replace("&amp", "&");
     }
 
-    public static MapTag valueOf(String string) {
-        return valueOf(string, null);
-    }
-
     @Fetchable("map")
     public static MapTag valueOf(String string, TagContext context) {
         if (string == null) {
             return null;
         }
-
-        if (string.startsWith("map@") && string.length() > "map@".length()) {
+        if (string.startsWith("map@")) {
             string = string.substring("map@".length());
         }
-
         MapTag result = new MapTag();
-
         if (string.length() == 0) {
             return result;
         }
         if (!string.endsWith("|")) {
             string += "|";
         }
-
         int pipe = string.indexOf('|');
         int lastPipe = 0;
         while (pipe != -1) {
@@ -90,11 +82,10 @@ public class MapTag implements ObjectTag, Adjustable {
             }
             String key = string.substring(lastPipe, slash);
             String value = string.substring(slash + 1, pipe);
-            result.map.put(new StringHolder(unescapeEntry(key)), ObjectFetcher.pickObjectFor(unescapeEntry(value), context));
+            result.putObject(unescapeEntry(key), ObjectFetcher.pickObjectFor(unescapeEntry(value), context));
             lastPipe = pipe + 1;
             pipe = string.indexOf('|', lastPipe);
         }
-
         return result;
     }
 
@@ -151,7 +142,7 @@ public class MapTag implements ObjectTag, Adjustable {
 
     @Override
     public String getObjectType() {
-        return "map";
+        return "Map";
     }
 
     @Override
@@ -187,6 +178,14 @@ public class MapTag implements ObjectTag, Adjustable {
         return identify();
     }
 
+    public ObjectTag getObject(String key) {
+        return map.get(new StringHolder(key));
+    }
+
+    public void putObject(String key, ObjectTag value) {
+        map.put(new StringHolder(key), value);
+    }
+
     public static void registerTags() {
 
         // <--[tag]
@@ -210,18 +209,150 @@ public class MapTag implements ObjectTag, Adjustable {
         });
 
         // <--[tag]
-        // @attribute <MapTag.get[<key>]>
+        // @attribute <MapTag.sort_by_value[(<tag>)]>
+        // @returns MapTag
+        // @description
+        // returns a copy of the map, sorted alphanumerically by the value under each key.
+        // Optionally, specify a tag to apply to the value.
+        // To sort by key, use <@link tag MapTag.get_subset> with list sort tags, like 'map.get_subset[map.list_keys.sort_by_value[...]]'.
+        // This also lets you apply list filters or similar to the keyset.
+        // To apply a '.parse' to the values, use <@link tag ListTag.map_with>, like 'map.list_keys.map_with[map.list_values.parse[...]]'
+        // -->
+        registerTag("sort_by_value", (attribute, object) -> {
+            ArrayList<Map.Entry<StringHolder, ObjectTag>> entryList = new ArrayList<>(object.map.entrySet());
+            final NaturalOrderComparator comparator = new NaturalOrderComparator();
+            final String tag = attribute.hasContext(1) ? attribute.getRawContext(1) : null;
+            try {
+                Collections.sort(entryList, new Comparator<Map.Entry<StringHolder, ObjectTag>>() {
+                    @Override
+                    public int compare(Map.Entry<StringHolder, ObjectTag> e1, Map.Entry<StringHolder, ObjectTag> e2) {
+                        ObjectTag o1 = e1.getValue();
+                        ObjectTag o2 = e2.getValue();
+                        if (tag != null) {
+                            o1 = CoreUtilities.autoAttribTyped(o1, new Attribute(tag, attribute.getScriptEntry(), attribute.context));
+                            o2 = CoreUtilities.autoAttribTyped(o2, new Attribute(tag, attribute.getScriptEntry(), attribute.context));
+                        }
+                        return comparator.compare(o1, o2);
+                    }
+                });
+            }
+            catch (Exception ex) {
+                Debug.echoError(ex);
+            }
+            MapTag output = new MapTag();
+            for (Map.Entry<StringHolder, ObjectTag> entry : entryList) {
+                output.map.put(entry.getKey(), entry.getValue());
+            }
+            return output;
+        });
+
+        // <--[tag]
+        // @attribute <MapTag.filter_tag[<parseable-boolean>]>
+        // @returns MapTag
+        // @description
+        // returns a copy of the map with all its contents parsed through the given input tag and only including ones that returned 'true'.
+        // This requires a fully formed tag as input, making use of the 'filter_key' and 'filter_value' definition.
+        // For example: a map of 'a/1|b/2|c/3|d/4|e/5' .filter_tag[<[filter_value].is[or_more].than[3]>] returns a list of 'c/3|d/4|e/5'.
+        // -->
+        registerTag("filter_tag", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("Must have input to filter_tag[...]");
+                return null;
+            }
+            MapTag newMap = new MapTag();
+            Attribute.OverridingDefinitionProvider provider = new Attribute.OverridingDefinitionProvider(attribute.context.definitionProvider);
+            try {
+                for (Map.Entry<StringHolder, ObjectTag> entry : object.map.entrySet()) {
+                    provider.altDefs.put("filter_key", new ElementTag(entry.getKey().str));
+                    provider.altDefs.put("filter_value", entry.getValue());
+                    if (CoreUtilities.equalsIgnoreCase(attribute.parseDynamicContext(1, provider).toString(), "true")) {
+                        newMap.map.put(entry.getKey(), entry.getValue());
+                    }
+                }
+            }
+            catch (Exception ex) {
+                Debug.echoError(ex);
+            }
+            return newMap;
+        });
+
+        // <--[tag]
+        // @attribute <MapTag.parse_value_tag[<parseable-value>]>
+        // @returns MapTag
+        // @description
+        // returns a copy of the map with all its values updated through the given tag.
+        // This requires a fully formed tag as input, making use of the 'parse_key' and 'parse_value' definition.
+        // For example: a map of 'alpha/one|bravo/two' .parse_value_tag[<[parse_value].to_uppercase>] returns a map of 'alpha/ONE|bravo/TWO'.
+        // -->
+        registerTag("parse_value_tag", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("Must have input to parse_value_tag[...]");
+                return null;
+            }
+            MapTag newMap = new MapTag();
+            Attribute.OverridingDefinitionProvider provider = new Attribute.OverridingDefinitionProvider(attribute.context.definitionProvider);
+            try {
+                for (Map.Entry<StringHolder, ObjectTag> entry : object.map.entrySet()) {
+                    provider.altDefs.put("parse_key", new ElementTag(entry.getKey().str));
+                    provider.altDefs.put("parse_value", entry.getValue());
+                    newMap.map.put(entry.getKey(), attribute.parseDynamicContext(1, provider));
+                }
+            }
+            catch (Exception ex) {
+                Debug.echoError(ex);
+            }
+            return newMap;
+        });
+
+        // <--[tag]
+        // @attribute <MapTag.contains[<key>|...]>
+        // @returns ElementTag(Boolean)
+        // @description
+        // Returns whether the map contains the specified key.
+        // If a list is given as input, returns whether the map contains all of the specified keys.
+        // -->
+        registerTag("contains", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag 'MapTag.contains' must have an input value.");
+                return null;
+            }
+            if (attribute.getContext(1).contains("|")) {
+                ListTag keyList = attribute.getContextObject(1).asType(ListTag.class, attribute.context);
+                boolean contains = true;
+                for (String key : keyList) {
+                    if (object.getObject(key) == null) {
+                        contains = false;
+                        break;
+                    }
+                }
+                return new ElementTag(contains);
+            }
+            return new ElementTag(object.getObject(attribute.getContext(1)) != null);
+        });
+
+        // <--[tag]
+        // @attribute <MapTag.get[<key>|...]>
         // @returns ObjectTag
         // @description
         // Returns the object value at the specified key.
+        // If a list is given as input, returns a list of values.
         // For example, on a map of "a/1|b/2|c/3|", using ".get[b]" will return "2".
+        // For example, on a map of "a/1|b/2|c/3|", using ".get[b|c]" will return a list of "2|3".
         // -->
         registerTag("get", (attribute, object) -> {
             if (!attribute.hasContext(1)) {
                 attribute.echoError("The tag 'MapTag.get' must have an input value.");
                 return null;
             }
-            return object.map.get(new StringHolder(attribute.getContext(1)));
+            if (attribute.getContext(1).contains("|")) {
+                ListTag keyList = attribute.getContextObject(1).asType(ListTag.class, attribute.context);
+                ListTag valList = new ListTag();
+                for (String key : keyList) {
+                    valList.addObject(object.getObject(key));
+                }
+                return valList;
+            }
+            return object.getObject(attribute.getContext(1));
         });
 
         // <--[tag]
@@ -250,6 +381,40 @@ public class MapTag implements ObjectTag, Adjustable {
         });
 
         // <--[tag]
+        // @attribute <MapTag.default[<key>].as[<value>]>
+        // @returns MapTag
+        // @description
+        // Returns a copy of the map, with the specified key defaulted to the specified value.
+        // If the map does not already have the specified key, this is equivalent to the 'with[key].as[value]' tag.
+        // If the map already has the specified key, this will return the original map, unmodified.
+        // For example, on a map of "a/1|b/2|c/3|", using ".default[d].as[4]" will return "a/1|b/2|c/3|d/4|".
+        // For example, on a map of "a/1|b/2|c/3|", using ".default[c].as[4]" will return "a/1|b/2|c/3|".
+        // -->
+        registerTag("default", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag 'MapTag.default' must have an input value.");
+                return null;
+            }
+            String key = attribute.getContext(1);
+            attribute.fulfill(1);
+            if (!attribute.matches("as")) {
+                attribute.echoError("The tag 'MapTag.default' must be followed by '.as'.");
+                return null;
+            }
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag 'MapTag.default.as' must have an input value for 'as'.");
+                return null;
+            }
+            if (object.map.containsKey(new StringHolder(key))) {
+                return object;
+            }
+            ObjectTag value = attribute.getContextObject(1);
+            MapTag result = object.duplicate();
+            result.putObject(key, value);
+            return result;
+        });
+
+        // <--[tag]
         // @attribute <MapTag.with[<key>].as[<value>]>
         // @returns MapTag
         // @description
@@ -274,7 +439,7 @@ public class MapTag implements ObjectTag, Adjustable {
             }
             ObjectTag value = attribute.getContextObject(1);
             MapTag result = object.duplicate();
-            result.map.put(new StringHolder(key), value);
+            result.putObject(key, value);
             return result;
         });
 
@@ -335,31 +500,48 @@ public class MapTag implements ObjectTag, Adjustable {
         });
 
         // <--[tag]
-        // @attribute <MapTag.list_keys>
+        // @attribute <MapTag.keys>
         // @returns ListTag
         // @description
         // Returns a list of all keys in this map.
         // For example, on a map of "a/1|b/2|c/3|", using "list_keys" will return "a|b|c|".
         // -->
-        registerTag("list_keys", (attribute, object) -> {
+        registerTag("keys", (attribute, object) -> {
             ListTag result = new ListTag();
             for (StringHolder entry : object.map.keySet()) {
                 result.add(entry.str);
             }
             return result;
-        });
+        }, "list_keys");
 
         // <--[tag]
-        // @attribute <MapTag.list_values>
+        // @attribute <MapTag.values>
         // @returns ListTag
         // @description
         // Returns a list of all values in this map.
         // For example, on a map of "a/1|b/2|c/3|", using "list_values" will return "1|2|3|".
         // -->
-        registerTag("list_values", (attribute, object) -> {
+        registerTag("values", (attribute, object) -> {
             ListTag result = new ListTag();
             for (ObjectTag entry : object.map.values()) {
                 result.addObject(entry);
+            }
+            return result;
+        }, "list_values");
+
+        // <--[tag]
+        // @attribute <MapTag.to_pair_lists>
+        // @returns ListTag
+        // @description
+        // Returns a list of all key/value pairs in this map, where each entry in the list is itself a list with 2 entries: the key, then the value.
+        // -->
+        registerTag("to_pair_lists", (attribute, object) -> {
+            ListTag result = new ListTag();
+            for (Map.Entry<StringHolder, ObjectTag> entry : object.map.entrySet()) {
+                ListTag pair = new ListTag();
+                pair.add(entry.getKey().str);
+                pair.addObject(entry.getValue());
+                result.addObject(pair);
             }
             return result;
         });

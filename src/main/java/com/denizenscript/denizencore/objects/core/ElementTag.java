@@ -44,7 +44,7 @@ public class ElementTag implements ObjectTag {
     // For example: <element[This_is_a_test].to_uppercase>
     // will result in the value 'THIS_IS_A_TEST'.
     //
-    // Note that while other objects often return their object identifier (p@, li@, e@, etc.), elements do not.
+    // Note that while other objects often return their object identifier (p@, li@, e@, etc.), elements usually do not (except special type-validation circumstances).
     // They will, however, recognize the object notation "el@" if it is used.
     //
     // -->
@@ -82,6 +82,7 @@ public class ElementTag implements ObjectTag {
     // In some cases, this will also be documented as "<#.#>".
     // -->
 
+    @Deprecated
     public static ElementTag valueOf(String string) {
         return valueOf(string, null);
     }
@@ -232,7 +233,7 @@ public class ElementTag implements ObjectTag {
     }
 
     public boolean asBoolean() {
-        return CoreUtilities.toLowerCase(element).equals("true");
+        return CoreUtilities.equalsIgnoreCase(element, "true");
     }
 
     public String asString() {
@@ -240,7 +241,7 @@ public class ElementTag implements ObjectTag {
     }
 
     public boolean isBoolean() {
-        return element.equalsIgnoreCase("true") || element.equalsIgnoreCase("false");
+        return CoreUtilities.equalsIgnoreCase(element, "true") || CoreUtilities.equalsIgnoreCase(element, "false");
     }
 
     public boolean isDouble() {
@@ -291,7 +292,7 @@ public class ElementTag implements ObjectTag {
 
     public boolean matchesEnum(Enum[] values) {
         for (Enum value : values) {
-            if (value.name().equalsIgnoreCase(element)) {
+            if (CoreUtilities.equalsIgnoreCase(value.name(), element)) {
                 return true;
             }
         }
@@ -425,9 +426,7 @@ public class ElementTag implements ObjectTag {
         // Returns whether the element is a boolean ('true' or 'false').
         // -->
         registerTag("is_boolean", (attribute, object) -> {
-            String element = object.element;
-            return new ElementTag(element.equalsIgnoreCase("true")
-                    || element.equalsIgnoreCase("false"));
+            return new ElementTag(object.isBoolean());
         });
 
         // <--[tag]
@@ -650,8 +649,8 @@ public class ElementTag implements ObjectTag {
         // @returns QueueTag
         // @group conversion
         // @description
-        // Returns the element as a ScriptQueue.
-        // Note: the value must be a valid ScriptQueue.
+        // Returns the element as a QueueTag.
+        // Note: the value must be a valid QueueTag.
         // -->
         registerTag("as_queue", (attribute, object) -> {
             String element = object.element;
@@ -677,8 +676,8 @@ public class ElementTag implements ObjectTag {
         // @group conversion
         // @description
         // Returns the element, escaped for safe reuse.
-        // Inverts <@link tag ElementTag.unescaped>
-        // See <@link language property escaping>
+        // Inverts <@link tag ElementTag.unescaped>.
+        // See <@link language Escape Tags>.
         // -->
         registerTag("escaped", (attribute, object) -> {
             String element = object.element;
@@ -703,8 +702,8 @@ public class ElementTag implements ObjectTag {
         // @group conversion
         // @description
         // Returns the element, unescaped.
-        // Inverts <@link tag ElementTag.escaped>
-        // See <@link language property escaping>
+        // Inverts <@link tag ElementTag.escaped>.
+        // See <@link language Escape Tags>.
         // -->
         registerTag("unescaped", (attribute, object) -> {
             String element = object.element;
@@ -748,9 +747,9 @@ public class ElementTag implements ObjectTag {
         // @description
         // Returns whether the element contains any of a list of specified elements, case sensitive.
         // -->
-        registerTag("contains_any_case_sensitive", (attribute, object) -> {
+        registerTag("contains_any_case_sensitive_text", (attribute, object) -> {
             String element = object.element;
-            ListTag list = ListTag.valueOf(attribute.getContext(1), attribute.context);
+            ListTag list = attribute.contextAsType(1, ListTag.class);
             for (String list_element : list) {
                 if (element.contains(list_element)) {
                     return new ElementTag(true);
@@ -758,8 +757,7 @@ public class ElementTag implements ObjectTag {
             }
             return new ElementTag(false);
         });
-        TagRunnable.ObjectInterface<ElementTag> r = tagProcessor.registeredObjectTags.get("contains_any_case_sensitive");
-        registerTag("contains_any_case_sensitive_text", r);
+        tagProcessor.registerFutureTagDeprecation("contains_any_case_sensitive_text", "contains_any_case_sensitive");
 
         // <--[tag]
         // @attribute <ElementTag.contains_any_text[<element>|...]>
@@ -768,7 +766,7 @@ public class ElementTag implements ObjectTag {
         // @description
         // Returns whether the element contains any of a list of specified elements, case insensitive.
         // -->
-        registerTag("contains_any", (attribute, object) -> {
+        registerTag("contains_any_text", (attribute, object) -> {
             String element = object.element;
             ListTag list = ListTag.valueOf(CoreUtilities.toLowerCase(attribute.getContext(1)), attribute.context);
             String ellow = CoreUtilities.toLowerCase(element);
@@ -779,8 +777,7 @@ public class ElementTag implements ObjectTag {
             }
             return new ElementTag(false);
         });
-        r = tagProcessor.registeredObjectTags.get("contains_any");
-        registerTag("contains_any_text", r);
+        tagProcessor.registerFutureTagDeprecation("contains_any_text", "contains_any");
 
         // <--[tag]
         // @attribute <ElementTag.contains_case_sensitive_text[<element>]>
@@ -789,7 +786,7 @@ public class ElementTag implements ObjectTag {
         // @description
         // Returns whether the element contains a specified element, case sensitive.
         // -->
-        registerTag("contains_case_sensitive", (attribute, object) -> {
+        registerTag("contains_case_sensitive_text", (attribute, object) -> {
             String element = object.element;
             String contains = attribute.getContext(1);
             if (element.contains(contains)) {
@@ -799,8 +796,7 @@ public class ElementTag implements ObjectTag {
                 return new ElementTag("false");
             }
         });
-        r = tagProcessor.registeredObjectTags.get("contains_case_sensitive");
-        registerTag("contains_case_sensitive_text", r);
+        tagProcessor.registerFutureTagDeprecation("contains_case_sensitive_text", "contains_case_sensitive");
 
         // <--[tag]
         // @attribute <ElementTag.contains_text[<element>]>
@@ -810,7 +806,7 @@ public class ElementTag implements ObjectTag {
         // Returns whether the element contains a specified element, case insensitive. Can use
         // regular expression by prefixing the element with regex:
         // -->
-        registerTag("contains", (attribute, object) -> {
+        registerTag("contains_text", (attribute, object) -> {
             String element = object.element;
             String contains = attribute.getContext(1);
 
@@ -830,8 +826,7 @@ public class ElementTag implements ObjectTag {
                 return new ElementTag("false");
             }
         });
-        r = tagProcessor.registeredObjectTags.get("contains");
-        registerTag("contains_text", r);
+        tagProcessor.registerFutureTagDeprecation("contains_text", "contains");
 
         // <--[tag]
         // @attribute <ElementTag.contains_all_text[<element>|...]>
@@ -840,7 +835,7 @@ public class ElementTag implements ObjectTag {
         // @description
         // Returns whether the element contains all of the specified strings, case insensitive.
         // -->
-        registerTag("contains_all", (attribute, object) -> {
+        registerTag("contains_all_text", (attribute, object) -> {
             String element = object.element;
             ListTag list = ListTag.valueOf(CoreUtilities.toLowerCase(attribute.getContext(1)), attribute.context);
             String ellow = CoreUtilities.toLowerCase(element);
@@ -851,8 +846,7 @@ public class ElementTag implements ObjectTag {
             }
             return new ElementTag("true");
         });
-        r = tagProcessor.registeredObjectTags.get("contains_all");
-        registerTag("contains_all_text", r);
+        tagProcessor.registerFutureTagDeprecation("contains_all_text", "contains_all");
 
         // <--[tag]
         // @attribute <ElementTag.contains_all_case_sensitive_text[<element>|...]>
@@ -861,9 +855,9 @@ public class ElementTag implements ObjectTag {
         // @description
         // Returns whether the element contains all of the specified strings, case sensitive.
         // -->
-        registerTag("contains_all_case_sensitive", (attribute, object) -> {
+        registerTag("contains_all_case_sensitive_text", (attribute, object) -> {
             String element = object.element;
-            ListTag list = ListTag.valueOf(attribute.getContext(1), attribute.context);
+            ListTag list = attribute.contextAsType(1, ListTag.class);
             for (String list_element : list) {
                 if (!element.contains(list_element)) {
                     return new ElementTag("false");
@@ -871,8 +865,7 @@ public class ElementTag implements ObjectTag {
             }
             return new ElementTag("true");
         });
-        r = tagProcessor.registeredObjectTags.get("contains_all_case_sensitive");
-        registerTag("contains_all_case_sensitive_text", r);
+        tagProcessor.registerFutureTagDeprecation("contains_all_case_sensitive_text", "contains_all_case_sensitive");
 
         // <--[tag]
         // @attribute <ElementTag.ends_with[<element>]>
@@ -1096,6 +1089,28 @@ public class ElementTag implements ObjectTag {
         });
 
         // <--[tag]
+        // @attribute <ElementTag.repeat_as_list[<#>]>
+        // @returns ListTag
+        // @group element manipulation
+        // @description
+        // Returns a list contained the input number of entries, each of which is an exact copy of the element.
+        // For example, "hello" .repeat_as_list[3] returns a ListTag of "hello|hello|hello|"
+        // An input value or zero or a negative number will result in an empty list.
+        // -->
+        registerTag("repeat_as_list", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag ElementTag.repeat_as_list[...] must have a value.");
+                return null;
+            }
+            int repeatTimes = attribute.getIntContext(1);
+            ListTag result = new ListTag();
+            for (int i = 0; i < repeatTimes; i++) {
+                result.addObject(object);
+            }
+            return result;
+        });
+
+        // <--[tag]
         // @attribute <ElementTag.after_last[<element>]>
         // @returns ElementTag
         // @group element manipulation
@@ -1188,7 +1203,7 @@ public class ElementTag implements ObjectTag {
         });
 
         // <--[tag]
-        // @attribute <ElementTag.replace[((first)regex:)<element>]>
+        // @attribute <ElementTag.replace_text[((first)regex:)<element>]>
         // @returns ElementTag
         // @group element manipulation
         // @description
@@ -1196,7 +1211,7 @@ public class ElementTag implements ObjectTag {
         // -->
 
         // <--[tag]
-        // @attribute <ElementTag.replace[((first)regex:)<element>].with[<element>]>
+        // @attribute <ElementTag.replace_text[((first)regex:)<element>].with[<element>]>
         // @returns ElementTag
         // @group element manipulation
         // @description
@@ -1204,7 +1219,7 @@ public class ElementTag implements ObjectTag {
         // Specify regex: at the start of the replace element to use Regex replacement.
         // Specify firstregex: at the start of the replace element to Regex 'replaceFirst'
         // -->
-        registerTag("replace", (attribute, object) -> {
+        registerTag("replace_text", (attribute, object) -> {
             if (!attribute.hasContext(1)) {
                 attribute.echoError("The tag ElementTag.replace[...] must have a value.");
                 return null;
@@ -1229,28 +1244,10 @@ public class ElementTag implements ObjectTag {
                 return new ElementTag(object.element.replaceFirst(replace.substring("firstregex:".length()), replacement));
             }
             else {
-                return new ElementTag(object.element.replaceAll("(?i)" + Pattern.quote(replace), replacement));
+                return new ElementTag(object.element.replaceAll("(?i)" + Pattern.quote(replace), Matcher.quoteReplacement(replacement)));
             }
         });
-        // <--[tag]
-        // @attribute <ElementTag.replace_text[((first)regex:)<element>]>
-        // @returns ElementTag
-        // @group element manipulation
-        // @description
-        // Returns the element with all instances of a element removed.
-        // -->
-
-        // <--[tag]
-        // @attribute <ElementTag.replace_text[((first)regex:)<element>].with[<element>]>
-        // @returns ElementTag
-        // @group element manipulation
-        // @description
-        // Returns the element with all instances of a element replaced with another.
-        // Specify regex: at the start of the replace element to use Regex replacement.
-        // Specify firstregex: at the start of the replace element to Regex 'replaceFirst'
-        // -->
-        r = tagProcessor.registeredObjectTags.get("replace");
-        registerTag("replace_text", r);
+        tagProcessor.registerFutureTagDeprecation("replace_text", "replace");
 
         // <--[tag]
         // @attribute <ElementTag.format_number[(<format>)]>
@@ -1389,7 +1386,8 @@ public class ElementTag implements ObjectTag {
         // Returns the value of an element in all lowercase letters.
         // -->
         registerTag("to_lowercase", (attribute, object) -> {
-            return new ElementTag(CoreUtilities.toLowerCase(object.element));
+            // Intentionally do not use CoreUtilities here as users may expect multi-language compat.
+            return new ElementTag(object.element.toLowerCase());
         }, "lower");
 
         // <--[tag]
@@ -1405,7 +1403,8 @@ public class ElementTag implements ObjectTag {
             }
             StringBuilder TitleCase = new StringBuilder(object.element.length());
             String Upper = object.element.toUpperCase();
-            String Lower = CoreUtilities.toLowerCase(object.element);
+            // Intentionally do not use CoreUtilities here as users may expect multi-language compat.
+            String Lower = object.element.toLowerCase();
             TitleCase.append(Upper.charAt(0));
             for (int i = 1; i < object.element.length(); i++) {
                 if (object.element.charAt(i - 1) == ' ') {
@@ -1456,6 +1455,18 @@ public class ElementTag implements ObjectTag {
         }, "substr");
 
         // <--[tag]
+        // @attribute <ElementTag.split_args>
+        // @returns ListTag
+        // @group element manipulation
+        // @description
+        // Returns a list of portions of this element, split the same way command arguments are split.
+        // That is, split by spaces but respecting the use of "quotes" to contain spaces within a single argument.
+        // -->
+        registerTag("split_args", (attribute, object) -> {
+            return new ListTag(Arrays.asList(ArgumentHelper.buildArgs(object.element)));
+        });
+
+        // <--[tag]
         // @attribute <ElementTag.split[(regex:)<string>]>
         // @returns ListTag
         // @group element manipulation
@@ -1473,6 +1484,9 @@ public class ElementTag implements ObjectTag {
             }
             else {
                 split_string = "(?i)" + Pattern.quote(split_string);
+            }
+            if (split_string.isEmpty()) {
+                attribute.echoError("Cannot split over empty value. Did you mean to use 'to_list'?");
             }
             String[] split;
 
@@ -2288,17 +2302,6 @@ public class ElementTag implements ObjectTag {
             }
             return new ElementTag(new AsciiMatcher(attribute.getContext(1)).trimToMatches(object.element));
         });
-
-        // <--[tag]
-        // @attribute <ElementTag.type>
-        // @returns ElementTag
-        // @description
-        // Always returns 'Element' for ElementTag objects. All objects fetchable by the Object Fetcher will return the
-        // type of object that is fulfilling this attribute.
-        // -->
-        registerTag("type", (attribute, object) -> {
-            return new ElementTag("Element");
-        });
     }
 
     public static ObjectTagProcessor<ElementTag> tagProcessor = new ObjectTagProcessor<>();
@@ -2310,6 +2313,23 @@ public class ElementTag implements ObjectTag {
     @Override
     public ObjectTag getObjectAttribute(Attribute attribute) {
         return tagProcessor.getObjectAttribute(this, attribute);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ElementTag)) {
+            return false;
+        }
+        ElementTag other = (ElementTag) o;
+        return element.equals(other.element);
+    }
+
+    @Override
+    public int hashCode() {
+        return element.hashCode();
     }
 
     public static class FailedObjectTag implements ObjectTag {

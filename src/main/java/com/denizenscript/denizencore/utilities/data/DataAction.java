@@ -27,7 +27,8 @@ public class DataAction {
     public ObjectTag inputValue = null;
 
     public String debug() {
-        return ArgumentHelper.debugObj("action", "(" + key + "[" + index + "]:" + type + ":" + inputValue + ")");
+        String keyDebug = index == 0 ? key : (key + "[" + index + "]");
+        return ArgumentHelper.debugObj("action", "(" + keyDebug + ":" + type + ":" + inputValue + ")");
     }
 
     public ListTag autoList(String key, TagContext context) {
@@ -154,9 +155,9 @@ public class DataAction {
                     list.remove(index - 1);
                 }
                 requiresInputValue();
-                String findValue = CoreUtilities.toLowerCase(inputValue.toString());
+                String findValue = inputValue.toString();
                 for (int i = 0; i < list.size(); i++) {
-                    if (CoreUtilities.toLowerCase(list.get(i)).equals(findValue)) {
+                    if (CoreUtilities.equalsIgnoreCase(list.get(i), findValue)) {
                         list.remove(i);
                         break;
                     }
@@ -177,7 +178,7 @@ public class DataAction {
                 break;
             case SET:
                 requiresInputValue();
-                provider.setValueAt(key, autoDup(inputValue));
+                autoSet(autoDup(inputValue), context);
                 break;
             case AUTO_SET:
                 provider.setValueAt(key, new ElementTag(true));

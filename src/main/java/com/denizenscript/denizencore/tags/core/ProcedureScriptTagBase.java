@@ -9,7 +9,6 @@ import com.denizenscript.denizencore.scripts.queues.core.InstantQueue;
 import com.denizenscript.denizencore.tags.Attribute;
 import com.denizenscript.denizencore.tags.ReplaceableTagEvent;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
-import com.denizenscript.denizencore.utilities.Deprecations;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.tags.TagManager;
 
@@ -23,7 +22,7 @@ public class ProcedureScriptTagBase {
             public void run(ReplaceableTagEvent event) {
                 procedureTag(event);
             }
-        }, "proc", "pr");
+        }, "proc");
     }
 
     public void procedureTag(ReplaceableTagEvent event) {
@@ -41,12 +40,8 @@ public class ProcedureScriptTagBase {
         // @description
         // Returns the 'determine' result of a procedure script.
         // -->
-        if (!event.matches("proc", "pr")) {
+        if (!event.matches("proc")) {
             return;
-        }
-
-        if (event.matches("pr")) {
-            Deprecations.procShorthand.warn(event.getScriptEntry());
         }
 
         Attribute attr = event.getAttributes();
@@ -59,11 +54,11 @@ public class ProcedureScriptTagBase {
             if (event.getNameContext().indexOf('.') > 0) {
                 String[] split = event.getNameContext().split("\\.", 2);
                 path = split[1];
-                script = ScriptTag.valueOf(split[0]);
+                script = ScriptTag.valueOf(split[0], attr.context);
 
             }
             else {
-                script = ScriptTag.valueOf(event.getNameContext());
+                script = ScriptTag.valueOf(event.getNameContext(), attr.context);
             }
 
         }
@@ -103,7 +98,7 @@ public class ProcedureScriptTagBase {
                 event.hasTypeContext()) {
             attribs = 2;
             int x = 1;
-            ListTag definitions = new ListTag(event.getTypeContext());
+            ListTag definitions = ListTag.valueOf(event.getTypeContext(), attr.context);
             List<String> definition_names = null;
             if (script.getContainer().getContents().contains("definitions")) {
                 definition_names = CoreUtilities.split(script.getContainer().getString("definitions"), '|');
@@ -120,9 +115,8 @@ public class ProcedureScriptTagBase {
 
             queue.addDefinition("raw_context", event.getTypeContext());
         }
-
+        queue.procedural = true;
         queue.start();
-
         if (queue.determinations != null && queue.determinations.size() > 0) {
             event.setReplacedObject(CoreUtilities.autoAttribTyped(queue.determinations.getObject(0)
                     , attr.fulfill(attribs)));

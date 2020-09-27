@@ -1,6 +1,8 @@
 package com.denizenscript.denizencore.objects.properties;
 
 import com.denizenscript.denizencore.objects.ObjectFetcher;
+import com.denizenscript.denizencore.objects.core.ElementTag;
+import com.denizenscript.denizencore.objects.core.MapTag;
 import com.denizenscript.denizencore.tags.Attribute;
 import com.denizenscript.denizencore.tags.ObjectTagProcessor;
 import com.denizenscript.denizencore.utilities.AsciiMatcher;
@@ -151,6 +153,16 @@ public class PropertyParser {
 
     public static AsciiMatcher needsEscapingMatcher = new AsciiMatcher("&;[]");
 
+    public static String escapePropertyValue(String input) {
+        if (needsEscapingMatcher.containsAnyMatch(input)) {
+            input = CoreUtilities.replace(input, "&", "&amp");
+            input = CoreUtilities.replace(input, ";", "&sc");
+            input = CoreUtilities.replace(input, "[", "&lb");
+            input = CoreUtilities.replace(input, "]", "&rb");
+        }
+        return input;
+    }
+
     public static String getPropertiesString(ObjectTag object) {
         ClassPropertiesInfo properties = propertiesByClass.get(object.getObjectTagClass());
         if (properties == null) {
@@ -162,12 +174,7 @@ public class PropertyParser {
             if (property != null) {
                 String description = property.getPropertyString();
                 if (description != null) {
-                    if (needsEscapingMatcher.containsAnyMatch(description)) {
-                        description = CoreUtilities.replace(description, "&", "&amp");
-                        description = CoreUtilities.replace(description, ";", "&sc");
-                        description = CoreUtilities.replace(description, "[", "&lb");
-                        description = CoreUtilities.replace(description, "]", "&rb");
-                    }
+                    description = escapePropertyValue(description);
                     prop_string.append(property.getPropertyId()).append('=').append(description).append(';');
                 }
             }
@@ -178,6 +185,24 @@ public class PropertyParser {
         else {
             return "";
         }
+    }
+
+    public static MapTag getPropertiesMap(ObjectTag object) {
+        MapTag map = new MapTag();
+        ClassPropertiesInfo properties = propertiesByClass.get(object.getObjectTagClass());
+        if (properties == null) {
+            return map;
+        }
+        for (PropertyGetter getter : properties.propertiesWithMechs) {
+            Property property = getter.get(object);
+            if (property != null) {
+                String description = property.getPropertyString();
+                if (description != null) {
+                    map.putObject(property.getPropertyId(), new ElementTag(description));
+                }
+            }
+        }
+        return map;
     }
 
     public static List<Property> empty = new ArrayList<>();

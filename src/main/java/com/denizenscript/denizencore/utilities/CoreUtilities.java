@@ -3,6 +3,7 @@ package com.denizenscript.denizencore.utilities;
 import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.*;
 import com.denizenscript.denizencore.scripts.ScriptBuilder;
+import com.denizenscript.denizencore.tags.TagManager;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 import com.denizenscript.denizencore.objects.properties.Property;
 import com.denizenscript.denizencore.objects.properties.PropertyParser;
@@ -27,6 +28,7 @@ public class CoreUtilities {
 
     public static TagContext noDebugContext;
     public static TagContext basicContext;
+    public static TagContext errorButNoDebugContext;
 
     public static DecimalFormatSymbols decimalFormatSymbols = new DecimalFormatSymbols(Locale.US);
 
@@ -43,13 +45,17 @@ public class CoreUtilities {
     }
 
     public static ObjectTag objectToTagForm(Object obj, TagContext context, boolean scriptStrip) {
+        return objectToTagForm(obj, context, scriptStrip, false);
+    }
+
+    public static ObjectTag objectToTagForm(Object obj, TagContext context, boolean scriptStrip, boolean doParse) {
         if (obj == null) {
             return new ElementTag("null");
         }
         else if (obj instanceof List) {
             ListTag listResult = new ListTag();
             for (Object subObj : (List) obj) {
-                listResult.addObject(objectToTagForm(subObj, context, scriptStrip));
+                listResult.addObject(objectToTagForm(subObj, context, scriptStrip, doParse));
             }
             return listResult;
         }
@@ -60,7 +66,7 @@ public class CoreUtilities {
                 if (scriptStrip) {
                     key = ScriptBuilder.stripLinePrefix(key);
                 }
-                result.map.put(new StringHolder(key), CoreUtilities.objectToTagForm(entry.getValue(), context));
+                result.putObject(key, CoreUtilities.objectToTagForm(entry.getValue(), context, scriptStrip, doParse));
             }
             return result;
         }
@@ -68,6 +74,9 @@ public class CoreUtilities {
             String result = obj.toString();
             if (scriptStrip) {
                 result = ScriptBuilder.stripLinePrefix(result);
+            }
+            if (doParse) {
+                return TagManager.tagObject(result, context);
             }
             return ObjectFetcher.pickObjectFor(result, context);
         }
@@ -108,7 +117,7 @@ public class CoreUtilities {
         for (int i = 0; i < str.length(); i++) {
             char c = str.charAt(i);
             if (c == '\n') {
-                output.append(str, lineStart, i);
+                output.append(str, lineStart, i + 1);
                 curLineLen = 0;
                 lineStart = i + 1;
                 continue;
@@ -321,7 +330,7 @@ public class CoreUtilities {
                 int atIndex = simple.indexOf('@');
                 if (atIndex != -1) {
                     String code = simple.substring(0, atIndex);
-                    if (!code.equals(knownCode)) {
+                    if (!code.equals(knownCode) && !code.equals("el")) {
                         return false;
                     }
                 }
@@ -502,6 +511,27 @@ public class CoreUtilities {
         return strings;
     }
 
+    public static boolean equalsIgnoreCase(String input, String compared) {
+        int inLength = input.length();
+        if (inLength != compared.length()) {
+            return false;
+        }
+        for (int i = 0; i < inLength; i++) {
+            char a = input.charAt(i);
+            char b = compared.charAt(i);
+            if (a >= 'A' && a <= 'Z') {
+                a -= 'A' - 'a';
+            }
+            if (b >= 'A' && b <= 'Z') {
+                b -= 'A' - 'a';
+            }
+            if (a != b) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static String toLowerCase(String input) {
         char[] data = input.toCharArray();
         for (int i = 0; i < data.length; i++) {
@@ -565,6 +595,17 @@ public class CoreUtilities {
         }
 
         return closest;
+    }
+
+    public static int indexOfAny(String str, int start, char... chars) {
+        int earliest = -1;
+        for (char c : chars) {
+            int index = str.indexOf(c, start);
+            if (index != -1 && (earliest == -1 || index < earliest)) {
+                earliest = index;
+            }
+        }
+        return earliest;
     }
 
     public static int getLevenshteinDistance(String s, String t) {

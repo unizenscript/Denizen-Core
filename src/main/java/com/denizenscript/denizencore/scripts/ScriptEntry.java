@@ -82,6 +82,7 @@ public class ScriptEntry implements Cloneable, Debuggable {
 
     public List<Argument> getProcessedArgs() {
         for (Argument arg : aHArgs) {
+            arg.scriptEntry = this;
             if (arg.object instanceof ElementTag && arg.prefix == null) {
                 arg.fillStr(arg.object.toString());
             }
@@ -242,7 +243,9 @@ public class ScriptEntry implements Cloneable, Debuggable {
                 }
                 if (arg.equals("{")) {
                     if (!hasBraces) {
-                        Deprecations.oldBraceSyntax.warn(this);
+                        if (getScript() != null) { // ex command allowed to bypass
+                            Deprecations.oldBraceSyntax.warn(this);
+                        }
                         hasBraces = true;
                     }
                     nested_depth++;
@@ -541,7 +544,7 @@ public class ScriptEntry implements Cloneable, Debuggable {
     }
 
     public ScriptEntry setScript(String scriptName) {
-        internal.script = ScriptTag.valueOf(scriptName);
+        internal.script = ScriptTag.valueOf(scriptName, CoreUtilities.basicContext);
         return this;
     }
 

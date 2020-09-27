@@ -163,9 +163,9 @@ public class Argument implements Cloneable {
     public boolean matchesEnumList(Enum<?>[] values) {
         ListTag list = getList();
         for (String string : list) {
-            String tval = string.replace("_", "").toUpperCase();
+            String tval = string.replace("_", "");
             for (Enum<?> value : values) {
-                if (value.name().replace("_", "").equalsIgnoreCase(tval)) {
+                if (CoreUtilities.equalsIgnoreCase(value.name().replace("_", ""), tval)) {
                     return true;
                 }
             }
@@ -211,21 +211,17 @@ public class Argument implements Cloneable {
 
     // Check if this argument matches any of multiple ObjectTag types
     public boolean matchesArgumentTypes(Class<? extends ObjectTag>... dClasses) {
-
         for (Class<? extends ObjectTag> c : dClasses) {
             if (matchesArgumentType(c)) {
                 return true;
             }
         }
-
         return false;
     }
 
     // Check if this argument matches a ListTag of a certain ObjectTag
     public boolean matchesArgumentList(Class<? extends ObjectTag> dClass) {
-
         ListTag list = getList();
-
         return list.isEmpty() || list.containsObjectsFrom(dClass);
     }
 
@@ -240,6 +236,7 @@ public class Argument implements Cloneable {
         T arg = CoreUtilities.asType(object, clazz, DenizenCore.getImplementation().getTagContext(scriptEntry));
         if (arg == null) {
             Debug.echoError("Cannot process argument '" + object + "' as type '" + clazz.getSimpleName() + "' (conversion returned null).");
+            return null;
         }
         arg.setPrefix(prefix);
         return arg;

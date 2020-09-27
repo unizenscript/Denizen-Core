@@ -17,6 +17,7 @@ public class ChooseCommand extends BracedCommand {
         setName("choose");
         setSyntax("choose [<option>] [<cases>]");
         setRequiredArguments(1, 1);
+        isProcedural = true;
     }
 
     // <--[command]
@@ -107,7 +108,6 @@ public class ChooseCommand extends BracedCommand {
                 String cmdName = CoreUtilities.toLowerCase(se.getCommandName());
                 if (cmdName.equals("default")) {
                     lookupTable.put("\0DEFAULT", i);
-                    break;
                 }
                 else if (cmdName.equals("case")) {
                     if (se.getArguments().size() > 0) {

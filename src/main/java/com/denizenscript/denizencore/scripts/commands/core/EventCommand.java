@@ -19,6 +19,7 @@ public class EventCommand extends AbstractCommand {
         setName("event");
         setSyntax("event [<event name>|...] (context:<name>|<object>|...)");
         setRequiredArguments(1, 2);
+        isProcedural = false;
     }
 
     // <--[command]
@@ -37,13 +38,11 @@ public class EventCommand extends AbstractCommand {
     // The script's linked player and NPC will automatically be sent through to the event.
     // To add context information (tags like <context.location>) to the event, simply specify all context values in a list.
     // Note that there are some inherent limitations... EG, you can't directly add a list to the context currently.
-    // To do this, the best way is to just escape the list value (see <@link language property escaping>).
+    // To do this, the best way is to just escape the list value (see <@link language Escape Tags>).
     //
     // NOTE: This command is outdated and bound to be updated.
     //
     // @Tags
-    // <server.has_event[<event_name>]>
-    // <server.event_handlers[<event_name>]>
     // <entry[saveName].determinations> returns a list of the determined values (if any) from the event.
     //
     // @Usage
@@ -57,9 +56,7 @@ public class EventCommand extends AbstractCommand {
 
     @Override
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
-
         for (Argument arg : scriptEntry.getProcessedArgs()) {
-
             if (!scriptEntry.hasObject("context")
                     && arg.matchesPrefix("context", "c")) {
                 scriptEntry.addObject("context", arg.asType(ListTag.class));
@@ -71,37 +68,28 @@ public class EventCommand extends AbstractCommand {
                 arg.reportUnhandled();
             }
         }
-
         if (!scriptEntry.hasObject("events")) {
             throw new InvalidArgumentsException("Must specify a list of event names!");
         }
-
         scriptEntry.defaultObject("context", new ListTag());
-
     }
 
     @Override
     public void execute(ScriptEntry scriptEntry) {
-
         Deprecations.eventCommand.warn(scriptEntry);
-
         ListTag events = scriptEntry.getObjectTag("events");
         ListTag context = scriptEntry.getObjectTag("context");
-
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(), events.debug() + context.debug());
         }
-
         if (context.size() % 2 == 1) { // Size is uneven!
             context.add("null");
         }
-
         // Change the context input to a list of objects
         Map<String, ObjectTag> context_map = new HashMap<>();
         for (int i = 0; i < context.size(); i += 2) {
             context_map.put(context.get(i), ObjectFetcher.pickObjectFor(context.get(i + 1), scriptEntry.entryData.getTagContext()));
         }
-
         List<String> Determination = OldEventManager.doEvents(events,
                 scriptEntry.entryData, context_map, true);
         scriptEntry.addObject("determinations", new ListTag(Determination));

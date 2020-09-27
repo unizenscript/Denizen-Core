@@ -16,7 +16,9 @@ public class SystemTimeScriptEvent extends ScriptEvent {
     //
     // @Switch every:<count> to only run the event every *count* times (like "on system time secondly every:5" for every 5 seconds).
     //
-    // @Regex ^on system time (\d\d\:\d\d|hourly|minutely|secondly)$
+    // @Regex ^on system time( (\d\d\:\d\d|hourly|minutely|secondly))?$
+    //
+    // @Group Core
     //
     // @Triggers when the system time changes to the specified value.
     // The system time is the real world time set in the server's operating system.

@@ -8,6 +8,7 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
+import org.yaml.snakeyaml.scanner.ScannerImpl;
 
 import java.util.*;
 
@@ -15,6 +16,10 @@ import java.util.*;
  * Represents a YAML file.
  */
 public class YamlConfiguration {
+
+    static {
+        ScannerImpl.ESCAPE_REPLACEMENTS.put('/', "/");
+    }
 
     public static class CustomResolver extends Resolver {
         @Override
@@ -57,14 +62,28 @@ public class YamlConfiguration {
         for (Object o : new HashSet<Object>(objs.keySet())) {
             Object got = objs.get(o);
             objs.remove(o);
-            objs.put(new StringHolder(o.toString()), got);
+            objs.put(o == null ? null : new StringHolder(o.toString()), got);
         }
         for (Map.Entry<StringHolder, Object> str : objs.entrySet()) {
             if (str.getValue() instanceof Map) {
                 Map map = (Map<StringHolder, Object>) str.getValue();
                 switchKeys(map);
-                objs.remove(map);
                 objs.put(str.getKey(), map);
+            }
+            else if (str.getValue() instanceof List) {
+                List list = (List) str.getValue();
+                List outList = new ArrayList();
+                for (Object obj : list) {
+                    if (obj instanceof Map) {
+                        Map map = new HashMap((Map) obj);
+                        switchKeys(map);
+                        outList.add(map);
+                    }
+                    else {
+                        outList.add(obj);
+                    }
+                }
+                objs.put(str.getKey(), outList);
             }
         }
     }
@@ -75,14 +94,22 @@ public class YamlConfiguration {
             if (obj.getValue() instanceof Map) {
                 map.put(obj.getKey().str, reverse((Map<StringHolder, Object>) obj.getValue(), patchLines));
             }
-            else if (patchLines && obj.getValue() instanceof List) {
+            else if (obj.getValue() instanceof List) {
                 List vals = (List) obj.getValue();
-                List<String> output = new ArrayList<>(vals.size());
+                List output = new ArrayList<>(vals.size());
                 for (Object val : vals) {
                     if (val == null) {
                         continue;
                     }
-                    output.add(ScriptBuilder.stripLinePrefix(val.toString()));
+                    if (val instanceof Map) {
+                        output.add(reverse((Map) val, patchLines));
+                    }
+                    else if (patchLines) {
+                        output.add(ScriptBuilder.stripLinePrefix(val.toString()));
+                    }
+                    else {
+                        output.add(val.toString());
+                    }
                 }
                 map.put(obj.getKey().str, output);
             }
@@ -161,6 +188,9 @@ public class YamlConfiguration {
     }
 
     public Object get(String path) {
+        if (path.isEmpty()) {
+            return contents;
+        }
         List<String> parts = CoreUtilities.split(path, '.');
         Map<StringHolder, Object> portion = contents;
         for (int i = 0; i < parts.size(); i++) {

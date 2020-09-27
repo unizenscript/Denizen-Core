@@ -25,7 +25,8 @@ public class ScriptRegistry {
         _registerType("task", TaskScriptContainer.class);
         _registerType("procedure", ProcedureScriptContainer.class);
         _registerType("world", WorldScriptContainer.class);
-        _registerType("yaml data", YamlDataScriptContainer.class);
+        _registerType("data", DataScriptContainer.class);
+        _registerType("yaml data", DataScriptContainer.class);
     }
 
     public static boolean containsScript(String id) {
@@ -37,13 +38,7 @@ public class ScriptRegistry {
             return false;
         }
         ScriptContainer script = scriptContainers.get(CoreUtilities.toLowerCase(id));
-        String type = null;
-        for (Map.Entry<String, Class<? extends ScriptContainer>> entry : scriptContainerTypes.entrySet()) {
-            if (entry.getValue() == scriptContainerType) {
-                type = entry.getKey();
-            }
-        }
-        return type != null && (script.getContainerType().equalsIgnoreCase(type));
+        return scriptContainerType.isInstance(script);
     }
 
     public static YamlConfiguration fullYaml;
@@ -102,6 +97,7 @@ public class ScriptRegistry {
             return;
         }
         Set<StringHolder> scripts = yamlScripts.getKeys(false);
+        Debug.log("Loading " + scripts.size() + " scripts...");
         for (StringHolder scriptName : scripts) {
             attemptLoadSingle(scriptName.str, false);
         }

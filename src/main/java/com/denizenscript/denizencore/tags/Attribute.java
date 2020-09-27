@@ -3,11 +3,13 @@ package com.denizenscript.denizencore.tags;
 import com.denizenscript.denizencore.objects.ObjectTag;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.utilities.CoreUtilities;
+import com.denizenscript.denizencore.utilities.DefinitionProvider;
 import com.denizenscript.denizencore.utilities.debugging.Debug;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Attribute {
 
@@ -61,10 +63,10 @@ public class Attribute {
             if (chr == '[') {
                 braced++;
             }
-            else if (x == attrInp.length - 1) {
+            if (x == attrInp.length - 1) {
                 x2 = x + 1;
             }
-            else if (chr == ']') {
+            if (chr == ']') {
                 if (braced > 0) {
                     braced--;
                 }
@@ -118,7 +120,7 @@ public class Attribute {
         this.context = context;
         attributes = ref.attributes;
         contexts = new ObjectTag[attributes.length];
-        hadAlternative = ref.hadAlternative;
+        setHadAlternative(ref.hadAlternative);
     }
 
     public Attribute(String attributes, ScriptEntry scriptEntry, TagContext context) {
@@ -189,6 +191,88 @@ public class Attribute {
         }
         hasContextFailed = true;
         return false;
+    }
+
+    public static class OverridingDefinitionProvider implements DefinitionProvider {
+        public DefinitionProvider originalProvider;
+        public HashMap<String, ObjectTag> altDefs = new HashMap<>();
+        public OverridingDefinitionProvider(DefinitionProvider original) {
+            originalProvider = original;
+        }
+        @Override
+        public void addDefinition(String definition, String value) {
+            originalProvider.addDefinition(definition, value);
+        }
+        @Override
+        public void addDefinition(String definition, ObjectTag value) {
+            originalProvider.addDefinition(definition, value);
+        }
+        @Override
+        public Map<String, ObjectTag> getAllDefinitions() {
+            return originalProvider.getAllDefinitions();
+        }
+        @Override
+        public ObjectTag getDefinitionObject(String definition) {
+            ObjectTag result = altDefs.get(CoreUtilities.toLowerCase(definition));
+            if (result != null) {
+                return result;
+            }
+            return originalProvider.getDefinitionObject(definition);
+        }
+
+        @Override
+        public String getDefinition(String definition) {
+            ObjectTag result = altDefs.get(CoreUtilities.toLowerCase(definition));
+            if (result != null) {
+                return result.toString();
+            }
+            return originalProvider.getDefinition(definition);
+        }
+
+        @Override
+        public boolean hasDefinition(String definition) {
+            ObjectTag result = altDefs.get(CoreUtilities.toLowerCase(definition));
+            if (result != null) {
+                return true;
+            }
+            return originalProvider.hasDefinition(definition);
+        }
+
+        @Override
+        public void removeDefinition(String definition) {
+            originalProvider.removeDefinition(definition);
+        }
+    }
+
+    public String getRawContext(int attribute) {
+        attribute += fulfilled - 1;
+        if (attribute < 0 || attribute >= attributes.length) {
+            return null;
+        }
+        return attributes[attribute].context;
+    }
+
+    public ObjectTag parseDynamicContext(int attribute, OverridingDefinitionProvider customProvider) {
+        String inp = getRawContext(attribute);
+        if (inp == null) {
+            return null;
+        }
+        DefinitionProvider originalProvider = context.definitionProvider;
+        context.definitionProvider = customProvider;
+        try {
+            return TagManager.tagObject(inp, context);
+        }
+        finally {
+            context.definitionProvider = originalProvider;
+        }
+    }
+
+    public <T extends ObjectTag> T contextAsType(int attribute, Class<T> dClass) {
+        ObjectTag contextObj = getContextObject(attribute);
+        if (contextObj == null) {
+            return null;
+        }
+        return CoreUtilities.asType(contextObj, dClass, context);
     }
 
     public ObjectTag getContextObject(int attribute) {
@@ -263,6 +347,10 @@ public class Attribute {
 
     public void setHadAlternative(boolean hadAlternative) {
         this.hadAlternative = hadAlternative;
+        if (context != null && context.debug && hadAlternative) {
+            context = context.clone();
+            context.debug = false;
+        }
     }
 
     public long getLongContext(int attribute) {
