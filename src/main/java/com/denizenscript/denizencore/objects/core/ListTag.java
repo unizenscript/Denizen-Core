@@ -459,8 +459,6 @@ public class ListTag implements List<String>, ObjectTag {
                 }
             }
         }
-
-        checkIfEmpty(); // Unizen-added
     }
 
     public ListTag(String flag, boolean is_flag, List<String> flag_contents) {
@@ -471,8 +469,6 @@ public class ListTag implements List<String>, ObjectTag {
         for (String str : flag_contents) {
             objectForms.add(new ElementTag(str));
         }
-
-        checkIfEmpty(); // Unizen-added
     }
 
     public ListTag(ListTag input) {
@@ -485,8 +481,6 @@ public class ListTag implements List<String>, ObjectTag {
         for (String str : items) {
             objectForms.add(new ElementTag(str));
         }
-
-        checkIfEmpty(); // Unizen-added
     }
 
     // A Set<Object> of items
@@ -500,24 +494,11 @@ public class ListTag implements List<String>, ObjectTag {
                 objectForms.add(new ElementTag(o.toString()));
             }
         }
-
-        checkIfEmpty(); // Unizen-added
     }
 
     /////////////
     //   Instance Fields/Methods
     //////////
-
-    // Unizen start
-
-    public void checkIfEmpty() {
-        if (super.size() == 1 && super.get(0).isEmpty()) {
-            super.clear();
-            objectForms.clear();
-        }
-    }
-
-    // Unizen end
 
     public ListTag addObjects(List<ObjectTag> ObjectTags) {
         for (ObjectTag obj : ObjectTags) {
