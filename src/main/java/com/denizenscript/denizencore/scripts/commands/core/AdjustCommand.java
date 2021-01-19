@@ -1,6 +1,8 @@
 package com.denizenscript.denizencore.scripts.commands.core;
 
+import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.exceptions.InvalidArgumentsException;
+import com.denizenscript.denizencore.flags.FlaggableObject;
 import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.objects.core.ElementTag;
 import com.denizenscript.denizencore.objects.core.ListTag;
@@ -74,7 +76,7 @@ public class AdjustCommand extends AbstractCommand {
                 }
                 else if (arg.object instanceof ElementTag) {
                     // Special parse to avoid prefixing issues
-                    scriptEntry.addObject("object", ListTag.valueOf(arg.raw_value, scriptEntry.getContext()));
+                    scriptEntry.addObject("object", ListTag.valueOf(arg.getRawValue(), scriptEntry.getContext()));
                 }
                 else {
                     scriptEntry.addObject("object", arg.asType(ListTag.class));
@@ -82,7 +84,7 @@ public class AdjustCommand extends AbstractCommand {
             }
             else if (!scriptEntry.hasObject("mechanism")
                 && !scriptEntry.hasObject("mechanism_map")) {
-                if (arg.raw_value.startsWith("map@")) {
+                if (arg.getRawValue().startsWith("map@")) {
                     scriptEntry.addObject("mechanism_map", arg.asType(MapTag.class));
                 }
                 else if (arg.hasPrefix()) {
@@ -117,27 +119,35 @@ public class AdjustCommand extends AbstractCommand {
     }
 
     public ObjectTag adjust(ObjectTag object, Mechanism mechanism, ScriptEntry entry) {
-        String objectString = object.toString();
-        String lowerObjectString = CoreUtilities.toLowerCase(objectString);
-        Consumer<Mechanism> specialAdjustable = specialAdjustables.get(lowerObjectString);
-        if (specialAdjustable != null) {
-            specialAdjustable.accept(mechanism);
-            return object;
-        }
-        if (lowerObjectString.startsWith("def:")) {
-            String defName = lowerObjectString.substring("def:".length());
-            ObjectTag def = entry.getResidingQueue().getDefinitionObject(defName);
-            if (def == null) {
-                Debug.echoError("Invalid definition name '" + defName + "', cannot adjust");
-                return object;
-            }
-            def = adjust(def, mechanism, entry);
-            entry.getResidingQueue().addDefinition(defName, def);
-            return def;
+        if (object == null) {
+            Debug.echoError("Cannot adjust null object.");
+            return null;
         }
         if (object instanceof ElementTag) {
-            object = ObjectFetcher.pickObjectFor(objectString, entry.entryData.getTagContext());
+            String objectString = object.toString();
+            String lowerObjectString = CoreUtilities.toLowerCase(objectString);
+            Consumer<Mechanism> specialAdjustable = specialAdjustables.get(lowerObjectString);
+            if (specialAdjustable != null) {
+                specialAdjustable.accept(mechanism);
+                return object;
+            }
+            if (lowerObjectString.startsWith("def:")) {
+                String defName = lowerObjectString.substring("def:".length());
+                ObjectTag def = entry.getResidingQueue().getDefinitionObject(defName);
+                if (def == null) {
+                    Debug.echoError("Invalid definition name '" + defName + "', cannot adjust");
+                    return object;
+                }
+                def = adjust(def, mechanism, entry);
+                entry.getResidingQueue().addDefinition(defName, def);
+                return def;
+            }
+            object = ObjectFetcher.pickObjectFor(objectString, entry.context);
             if (object instanceof ElementTag) {
+                FlaggableObject altObject = DenizenCore.getImplementation().simpleWordToFlaggable(objectString, entry);
+                if (altObject != null && !(altObject instanceof ElementTag)) {
+                    return altObject;
+                }
                 Debug.echoError("Unable to determine what object to adjust (missing object notation?), for: " + objectString);
                 return object;
             }
@@ -151,12 +161,13 @@ public class AdjustCommand extends AbstractCommand {
             }
             return result;
         }
-        // Make sure this object is Adjustable
+        if (!object.isUnique()) {
+            object = ObjectFetcher.pickObjectFor(object.identify(), mechanism.context); // Create duplicate of object, instead of adjusting original
+        }
         if (!(object instanceof Adjustable)) {
-            Debug.echoError("'" + objectString + "' is not an adjustable object type.");
+            Debug.echoError("'" + object + "' is not an adjustable object type.");
             return object;
         }
-        object = ObjectFetcher.pickObjectFor(objectString, mechanism.context); // Create duplicate of object, instead of adjusting original
         if (entry.getResidingQueue().procedural && object.isUnique()) {
             Debug.echoError("Cannot adjust a unique object within a procedural queue.");
             return null;

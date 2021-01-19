@@ -38,7 +38,7 @@ public class MapTag implements ObjectTag, Adjustable {
     //
     // If the pipe symbol "|" appears in a key or value, it will be replaced by "&pipe",
     // a slash "/" will become "&fs", and an ampersand "&" will become "&amp".
-    // This is a subset of Denizen standard escaping, see <@link language Escape Tags>.
+    // This is a subset of Denizen standard escaping, see <@link language Escaping System>.
     //
     // -->
 
@@ -48,14 +48,20 @@ public class MapTag implements ObjectTag, Adjustable {
         if (!needsEscpingMatcher.containsAnyMatch(value)) {
             return value;
         }
-        return value.replace("&", "&amp").replace("|", "&pipe").replace("/", "&fs");
+        value = CoreUtilities.replace(value, "&", "&amp");
+        value = CoreUtilities.replace(value, "|", "&pipe");
+        value = CoreUtilities.replace(value, "/", "&fs");
+        return value;
     }
 
     public static String unescapeEntry(String value) {
         if (value.indexOf('&') == -1) {
             return value;
         }
-        return value.replace("&fs", "/").replace("&pipe", "|").replace("&amp", "&");
+        value = CoreUtilities.replace(value, "&fs", "/");
+        value = CoreUtilities.replace(value, "&pipe", "|");
+        value = CoreUtilities.replace(value, "&amp", "&");
+        return value;
     }
 
     @Fetchable("map")
@@ -122,8 +128,6 @@ public class MapTag implements ObjectTag, Adjustable {
 
     String prefix = "Map";
 
-    public boolean isFlagMap = false;
-
     @Override
     public String getPrefix() {
         return prefix;
@@ -178,12 +182,51 @@ public class MapTag implements ObjectTag, Adjustable {
         return identify();
     }
 
+    public ObjectTag getDeepObject(String key) {
+        if (!CoreUtilities.contains(key, '.')) {
+            return getObject(key);
+        }
+        MapTag current = this;
+        List<String> subkeys = CoreUtilities.split(key, '.');
+        for (int i = 0; i < subkeys.size() - 1; i++) {
+            ObjectTag subValue = current.getObject(subkeys.get(i));
+            if (!(subValue instanceof MapTag)) {
+                return null;
+            }
+            current = (MapTag) subValue;
+        }
+        return current.getObject(subkeys.get(subkeys.size() - 1));
+    }
+
     public ObjectTag getObject(String key) {
         return map.get(new StringHolder(key));
     }
 
+    public void putDeepObject(String key, ObjectTag value) {
+        if (!CoreUtilities.contains(key, '.')) {
+            putObject(key, value);
+            return;
+        }
+        MapTag current = this;
+        List<String> subkeys = CoreUtilities.split(key, '.');
+        for (int i = 0; i < subkeys.size() - 1; i++) {
+            ObjectTag subValue = current.getObject(subkeys.get(i));
+            if (!(subValue instanceof MapTag)) {
+                subValue = new MapTag();
+                current.putObject(subkeys.get(i), subValue);
+            }
+            current = (MapTag) subValue;
+        }
+        current.putObject(subkeys.get(subkeys.size() - 1), value);
+    }
+
     public void putObject(String key, ObjectTag value) {
-        map.put(new StringHolder(key), value);
+        if (value == null) {
+            map.remove(new StringHolder(key));
+        }
+        else {
+            map.put(new StringHolder(key), value);
+        }
     }
 
     public static void registerTags() {
@@ -356,6 +399,31 @@ public class MapTag implements ObjectTag, Adjustable {
         });
 
         // <--[tag]
+        // @attribute <MapTag.deep_get[<key>|...]>
+        // @returns ObjectTag
+        // @description
+        // Returns the object value at the specified key, using deep key paths separated by the '.' symbol.
+        // This means if you have a MapTag with key 'root' set to the value of a second MapTag (with key 'leaf' as "myvalue"),
+        // then ".deep_get[root.leaf]" will return "myvalue".
+        // If a list is given as input, returns a list of values.
+        // -->
+        registerTag("deep_get", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag 'MapTag.deep_get' must have an input value.");
+                return null;
+            }
+            if (attribute.getContext(1).contains("|")) {
+                ListTag keyList = attribute.getContextObject(1).asType(ListTag.class, attribute.context);
+                ListTag valList = new ListTag();
+                for (String key : keyList) {
+                    valList.addObject(object.getDeepObject(key));
+                }
+                return valList;
+            }
+            return object.getDeepObject(attribute.getContext(1));
+        });
+
+        // <--[tag]
         // @attribute <MapTag.get_subset[<key>|...]>
         // @returns MapTag
         // @description
@@ -411,6 +479,34 @@ public class MapTag implements ObjectTag, Adjustable {
             ObjectTag value = attribute.getContextObject(1);
             MapTag result = object.duplicate();
             result.putObject(key, value);
+            return result;
+        });
+
+        // <--[tag]
+        // @attribute <MapTag.deep_with[<key>].as[<value>]>
+        // @returns MapTag
+        // @description
+        // Returns a copy of the map, with the specified key set to the specified value, using deep key paths separated by the '.' symbol.
+        // This means for example if you use "deep_with[root.leaf].as[myvalue]", you will have the key 'root' set to the value of a second MapTag (with key 'leaf' as "myvalue").
+        // -->
+        registerTag("deep_with", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag 'MapTag.deep_with' must have an input value.");
+                return null;
+            }
+            String key = attribute.getContext(1);
+            attribute.fulfill(1);
+            if (!attribute.matches("as")) {
+                attribute.echoError("The tag 'MapTag.deep_with' must be followed by '.as'.");
+                return null;
+            }
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag 'MapTag.deep_with.as' must have an input value for 'as'.");
+                return null;
+            }
+            ObjectTag value = attribute.getContextObject(1);
+            MapTag result = object.duplicate();
+            result.putDeepObject(key, value);
             return result;
         });
 

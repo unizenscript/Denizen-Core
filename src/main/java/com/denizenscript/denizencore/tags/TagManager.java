@@ -308,7 +308,7 @@ public class TagManager {
         }
         int[] positions = new int[2];
         positions[0] = -1;
-        locateTag(arg, positions);
+        locateTag(arg, positions, 0);
         if (positions[0] == -1) {
             ParseableTagPiece txt = new ParseableTagPiece();
             txt.content = arg;
@@ -333,9 +333,9 @@ public class TagManager {
                 Debug.log("Tag: " + (preText == null ? "<null>" : preText.content) + " ||| " + midTag.content);
             }
             arg = arg.substring(positions[1] + 1);
-            locateTag(arg, positions);
+            locateTag(arg, positions, 0);
         }
-        if (arg.indexOf('<') != -1) {
+        if (arg.indexOf('<') != -1 && !arg.contains(":<-")) {
             ParseableTagPiece errorNote = new ParseableTagPiece();
             errorNote.isError = true;
             errorNote.content = "Potential issue: inconsistent tag marks in command! (issue snippet: " + arg + "; from: " + orig + ")";
@@ -356,31 +356,8 @@ public class TagManager {
         return parseChainObject(genChain(arg, context), context);
     }
 
-    public static int findColonNotTagNorSpace(String arg) {
-        if (arg.indexOf(':') == -1) {
-            return -1;
-        }
-        char[] arr = arg.toCharArray();
-        int bracks = 0;
-        for (int i = 0; i < arr.length; i++) {
-            if (arr[i] == '<') {
-                bracks++;
-            }
-            else if (arr[i] == '>') {
-                bracks--;
-            }
-            else if (arr[i] == ':' && bracks == 0) {
-                return i;
-            }
-            else if (arr[i] == ' ' && bracks == 0) {
-                return -1;
-            }
-        }
-        return -1;
-    }
-
-    private static void locateTag(String arg, int[] holder) {
-        int first = arg.indexOf('<');
+    private static void locateTag(String arg, int[] holder, int start) {
+        int first = arg.indexOf('<', start);
         holder[0] = first;
         if (first == -1) {
             return;
@@ -388,7 +365,7 @@ public class TagManager {
         int len = arg.length();
         // Handle "<-" for the flag command
         if (first + 1 < len && (arg.charAt(first + 1) == '-')) {
-            locateTag(arg.substring(0, first) + (char) 0x01 + arg.substring(first + 1), holder);
+            locateTag(arg, holder, first + 1);
             return;
         }
         int bracks = 1;
@@ -407,9 +384,9 @@ public class TagManager {
         holder[0] = -1;
     }
 
-    public static void fillArgumentsObjects(List<ObjectTag> args, List<ScriptEntry.InternalArgument> pieceHelp, List<Argument> aHArgs, TagContext context, int[] targets) {
+    public static void fillArgumentsObjects(List<ScriptEntry.InternalArgument> pieceHelp, List<Argument> aHArgs, TagContext context, int[] targets) {
         if (Debug.verbose) {
-            Debug.log("Fill argument objects: " + args + ", " + targets.length + "...");
+            Debug.log("Fill argument objects: " + aHArgs + ", " + targets.length + "...");
         }
         for (int argId : targets) {
             Argument aharg = aHArgs.get(argId);
@@ -422,12 +399,9 @@ public class TagManager {
                 if (aharg.needsFill) {
                     aharg.object = parseChainObject(piece.value, context);
                 }
-                String fullx = aharg.prefix + ":" + aharg.object.toString();
-                args.set(argId, new ElementTag(fullx));
             }
             else {
                 ObjectTag created = parseChainObject(piece.value, context);
-                args.set(argId, created);
                 aharg.object = created;
                 aharg.prefix = null;
                 aharg.lower_prefix = null;

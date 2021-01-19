@@ -7,7 +7,27 @@ import com.denizenscript.denizencore.DenizenCore;
 import com.denizenscript.denizencore.objects.core.DurationTag;
 import com.denizenscript.denizencore.scripts.queues.ScriptQueue;
 
-public class TimedQueue extends ScriptQueue implements Delayable {
+public class TimedQueue extends ScriptQueue {
+
+    @FunctionalInterface
+    public interface DelayTracker {
+
+        boolean isDelayed();
+    }
+
+    public static class DeltaTimeDelayTracker implements DelayTracker {
+
+        public long serverTimeEnd;
+
+        public DeltaTimeDelayTracker(long millis) {
+            serverTimeEnd = DenizenCore.serverTimeMillis + millis;
+        }
+
+        @Override
+        public boolean isDelayed() {
+            return serverTimeEnd > DenizenCore.serverTimeMillis;
+        }
+    }
 
     /////////////////////
     // Private instance fields and constructors
@@ -15,28 +35,18 @@ public class TimedQueue extends ScriptQueue implements Delayable {
 
     private Schedulable schedulable;
 
-    // The speed of the engine, the # of ticks
-    // between each revolution. Use setSpeed()
-    // to change this.
     private long ticks;
 
-    // ScriptQueues can be paused mid-rotation.
-    // The next entry will be held up until
-    // un-paused.
     protected boolean paused = false;
 
-    // The delay in ticks can put off the
-    // start of a queue
-    protected long delay_ticks = 0;
+    public DelayTracker delay;
 
-    @Override
     public void delayFor(DurationTag duration) {
-        delay_ticks = DenizenCore.serverTimeMillis + duration.getMillis();
+        delay = new DeltaTimeDelayTracker(duration.getMillis());
     }
 
-    @Override
     public boolean isDelayed() {
-        return (delay_ticks > DenizenCore.serverTimeMillis);
+        return delay != null && delay.isDelayed();
     }
 
     public TimedQueue(String id) {
@@ -57,7 +67,6 @@ public class TimedQueue extends ScriptQueue implements Delayable {
     // Public instance setters and getters
     /////////////////////
 
-    @Override
     public boolean isInstantSpeed() {
         return ticks <= 0;
     }
@@ -79,8 +88,7 @@ public class TimedQueue extends ScriptQueue implements Delayable {
      *
      * @param paused whether the queue should be paused
      */
-    @Override
-    public Delayable setPaused(boolean paused) {
+    public TimedQueue setPaused(boolean paused) {
         this.paused = paused;
         return this;
     }
@@ -90,7 +98,6 @@ public class TimedQueue extends ScriptQueue implements Delayable {
      *
      * @return true if paused.
      */
-    @Override
     public boolean isPaused() {
         return paused;
     }
@@ -107,20 +114,22 @@ public class TimedQueue extends ScriptQueue implements Delayable {
     }
 
     @Override
-    protected void onStart() {
+    public void onStart() {
         revolve();
         if (script_entries.isEmpty()) {
             return;
         }
-        Schedulable schedulable = new RepeatingSchedulable(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        revolve();
-                    }
-                }, (ticks <= 0 ? 1 : ticks) / 20f);
-        this.schedulable = schedulable;
-        DenizenCore.schedule(schedulable);
+        if (schedulable == null) {
+            Schedulable schedulable = new RepeatingSchedulable(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            revolve();
+                        }
+                    }, (ticks <= 0 ? 1 : ticks) / 20f);
+            this.schedulable = schedulable;
+            DenizenCore.schedule(schedulable);
+        }
     }
 
     @Override
@@ -132,11 +141,12 @@ public class TimedQueue extends ScriptQueue implements Delayable {
     protected void onStop() {
         if (schedulable != null) {
             schedulable.cancel();
+            schedulable = null;
         }
     }
 
     @Override
-    protected boolean shouldRevolve() {
+    public boolean shouldRevolve() {
         // Check if this Queue isn't paused
         if (paused) {
             return false;

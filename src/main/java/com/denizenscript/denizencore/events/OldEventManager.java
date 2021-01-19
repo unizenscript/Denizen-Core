@@ -26,9 +26,6 @@ public class OldEventManager {
     // Map for keeping the names of events
     public static Map<String, List<WorldScriptContainer>> events = new HashMap<>();
 
-    // Map for keeping track of registered smart_events
-    public static Set<OldSmartEvent> smart_events = new HashSet<>();
-
     //////////////////
     // PERFORMANCE
     ///////////
@@ -76,20 +73,6 @@ public class OldEventManager {
                     Debug.echoError("Script '" + script.getName() + "' does not have an events block!");
                 }
             }
-            // dB.echoApproval("Built events map: " + events);
-
-            // Breakdown all SmartEvents (if still being used, they will reinitialize next)
-            for (OldSmartEvent smartEvent : smart_events) {
-                smartEvent.breakDown();
-            }
-
-            // Pass these along to each SmartEvent so they can determine whether they can be enabled or not
-            for (OldSmartEvent smartEvent : smart_events) {
-                // If it should initialize, run _initialize!
-                if (smartEvent.shouldInitialize(events.keySet())) {
-                    smartEvent._initialize();
-                }
-            }
         }
         catch (Exception e) {
             Debug.echoError(e);
@@ -123,10 +106,6 @@ public class OldEventManager {
         }
 
         return parsed;
-    }
-
-    public static boolean eventExists(String original) {
-        return events.containsKey("ON " + original.toUpperCase());
     }
 
     public static List<String> addAlternates(List<String> events) {
@@ -163,15 +142,6 @@ public class OldEventManager {
         finalEvents.addAll(events);
         finalEvents.addAll(newEvents);
         return finalEvents;
-    }
-
-    public static String StripIdentifiers(String original) {
-        if (original.matches(".*?[a-z]+@[\\w ]+")) {
-            return original.replaceAll("[a-z]+@", "");
-        }
-        else {
-            return original;
-        }
     }
 
     ///////////////////
@@ -252,17 +222,6 @@ public class OldEventManager {
         @Override
         public ObjectTag getContext(String name) {
             return contexts.get(name);
-        }
-    }
-
-    ////////////////////
-    //  REGISTRATION
-    //////////////
-
-    public static void registerSmartEvent(OldSmartEvent event) {
-        // Seems simple enough
-        if (event != null) {
-            smart_events.add(event);
         }
     }
 }

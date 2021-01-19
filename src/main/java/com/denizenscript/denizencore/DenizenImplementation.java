@@ -1,7 +1,8 @@
 package com.denizenscript.denizencore;
 
+import com.denizenscript.denizencore.flags.AbstractFlagTracker;
+import com.denizenscript.denizencore.flags.FlaggableObject;
 import com.denizenscript.denizencore.objects.Argument;
-import com.denizenscript.denizencore.objects.core.ListTag;
 import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.scripts.ScriptEntryData;
 import com.denizenscript.denizencore.scripts.containers.ScriptContainer;
@@ -109,9 +110,7 @@ public interface DenizenImplementation {
 
     String scriptQueueSpeed();
 
-    ListTag valueOfFlagListTag(String input);
-
-    boolean matchesFlagListTag(String input);
+    AbstractFlagTracker getServerFlags();
 
     TagContext getTagContext(ScriptContainer container);
 
@@ -166,4 +165,6 @@ public interface DenizenImplementation {
     void stopRecording();
 
     void submitRecording(Consumer<String> processResult);
+
+    FlaggableObject simpleWordToFlaggable(String word, ScriptEntry entry);
 }

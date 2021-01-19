@@ -258,6 +258,16 @@ public class TimeTag implements ObjectTag, Adjustable {
         });
 
         // <--[tag]
+        // @attribute <TimeTag.days_in_month>
+        // @returns ElementTag(Number)
+        // @description
+        // Returns the number of days in the month that this TimeTag is within.
+        // -->
+        registerTag("days_in_month", (attribute, object) -> {
+            return new ElementTag(YearMonth.of(object.year(), object.month()).lengthOfMonth());
+        });
+
+        // <--[tag]
         // @attribute <TimeTag.day>
         // @returns ElementTag(Number)
         // @description
@@ -455,6 +465,70 @@ public class TimeTag implements ObjectTag, Adjustable {
         });
 
         // <--[tag]
+        // @attribute <TimeTag.last_day_of_month[<day>]>
+        // @returns TimeTag
+        // @description
+        // Returns the timetag of the last occurrence of the specified day-of-month.
+        // This can either be in the same month, or the previous month.
+        // For example, last_day_of_month[3] on a TimeTag on February 1st will return the 3rd of January.
+        // The hour/minute/second/millisecond will be zeroed.
+        // Be careful with inputs of 29/30/31, as only some months contain those days.
+        // -->
+        registerTag("last_day_of_month", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("time.last_day_of_month[...] must have input.");
+                return null;
+            }
+            int day = attribute.getIntContext(1);
+            if (day < 1 || day > 31) {
+                return null;
+            }
+            if (object.day() < day) {
+                if (object.month() == 1) {
+                    return new TimeTag(object.year() - 1, 12, day, 0, 0, 0, 0, object.instant.getOffset());
+                }
+                else {
+                    return new TimeTag(object.year(), object.month() - 1, day, 0, 0, 0, 0, object.instant.getOffset());
+                }
+            }
+            else {
+                return new TimeTag(object.year(), object.month(), day, 0, 0, 0, 0, object.instant.getOffset());
+            }
+        });
+
+        // <--[tag]
+        // @attribute <TimeTag.next_day_of_month[<day>]>
+        // @returns TimeTag
+        // @description
+        // Returns the timetag of the next occurrence of the specified day-of-month.
+        // This can either be in the same month, or the next month.
+        // For example, next_day_of_month[1] on a TimeTag on January 3rd will return the 1st of February.
+        // The hour/minute/second/millisecond will be zeroed.
+        // Be careful with inputs of 29/30/31, as only some months contain those days.
+        // -->
+        registerTag("next_day_of_month", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("time.next_day_of_month[...] must have input.");
+                return null;
+            }
+            int day = attribute.getIntContext(1);
+            if (day < 1 || day > 31) {
+                return null;
+            }
+            if (object.day() >= day) {
+                if (object.month() == 12) {
+                    return new TimeTag(object.year() + 1, 1, day, 0, 0, 0, 0, object.instant.getOffset());
+                }
+                else {
+                    return new TimeTag(object.year(), object.month() + 1, day, 0, 0, 0, 0, object.instant.getOffset());
+                }
+            }
+            else {
+                return new TimeTag(object.year(), object.month(), day, 0, 0, 0, 0, object.instant.getOffset());
+            }
+        });
+
+        // <--[tag]
         // @attribute <TimeTag.start_of_year>
         // @returns TimeTag
         // @description
@@ -517,10 +591,25 @@ public class TimeTag implements ObjectTag, Adjustable {
         });
 
         // <--[tag]
+        // @attribute <TimeTag.from_now>
+        // @returns DurationTag
+        // @description
+        // Returns the DurationTag between this time object and the real current system time.
+        // The value will always be positive.
+        // This is equivalent to the absolute value of ".duration_since[<util.time_now>]", and exists primarily as a convenience tag.
+        // For example, a TimeTag for Tuesday will return a DurationTag of '1d' when the tag is used on a Monday.
+        // A TimeTag for Sunday will also return a DurationTag of '1d' when used on a Monday.
+        // If positive/negative differences are required, consider instead using <@link tag TimeTag.duration_since>.
+        // -->
+        registerTag("from_now", (attribute, object) -> {
+            return new DurationTag(Math.abs(object.millis() - now().millis()) / 1000.0);
+        });
+
+        // <--[tag]
         // @attribute <TimeTag.duration_since[<time>]>
         // @returns DurationTag
         // @description
-        // Returns the DurationTime that passed between the input time and this time.
+        // Returns the DurationTag that passed between the input time and this time.
         // That is, a.duration_since[b] returns (a - b).
         // For example, a time on Monday, .duration_since[a time on Sunday], will return '1d'.
         // -->
@@ -568,11 +657,11 @@ public class TimeTag implements ObjectTag, Adjustable {
         // @returns ElementTag
         // @description
         // Returns the time, formatted to the date format specification given.
-        // If no format input is given, uses "yyyy/MM/dd hh:mm:ss".
+        // If no format input is given, uses "yyyy/MM/dd HH:mm:ss".
         // For the full format specification, refer to "Patterns for Formatting and Parsing" on <@link url https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html>.
         // -->
         registerTag("format", (attribute, object) -> {
-            String formatText = attribute.hasContext(1) ? attribute.getContext(1) : "yyyy/MM/dd hh:mm:ss";
+            String formatText = attribute.hasContext(1) ? attribute.getContext(1) : "yyyy/MM/dd HH:mm:ss";
             DateTimeFormatter format = DateTimeFormatter.ofPattern(formatText);
             return new ElementTag(object.instant.format(format));
         });

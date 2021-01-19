@@ -40,6 +40,8 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         registerScriptEvent(new DeltaTimeScriptEvent());
         registerScriptEvent(new PreScriptReloadScriptEvent());
         registerScriptEvent(new ReloadScriptsScriptEvent());
+        registerScriptEvent(new ScriptGeneratesErrorScriptEvent());
+        registerScriptEvent(new ServerGeneratesExceptionScriptEvent());
         registerScriptEvent(new SystemTimeScriptEvent());
         registerScriptEvent(new TickScriptEvent());
     }
@@ -109,11 +111,32 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
         // This is both more efficient to process and more explicit in what's going on, however it is less clear/readable to the average user, so it is not often used.
         // Some events may have switches for less-often specified data, and use the event line for other options.
         //
-        // One of the most common switches across many Denizen events is "in:<area>".
-        // In these switches, 'area' is a world, noted cuboid, or noted ellipsoid.
+        // There are also some standard switches available to every script event, and some available to an entire category of script events.
+        //
+        // One switch available to every event is "server_flagged:<flag name>", which requires that there be a server flag under the given name.
+        // For example, "on console output server_flagged:recording:" will only run the handler for console output when the "recording" flag is set on the server.
+        //
+        // Events that have a player linked have the "flagged" and "permission" switches available.
+        // Will always fail if the event doesn't have a linked player.
+        // The "flagged:<flag name>" will limit the event to only fire when the player has the flag with the specified name.
+        // It can be used like "on player breaks block flagged:nobreak:" (that would be used alongside "- flag player nobreak").
+        // The "permission:<perm key>" will limit the event to only fire when the player has the specified permission key.
+        // It can be used like "on player breaks block permission:denizen.my.perm:"
+        // As with any advanced switch, for multiple flag or permission requirements, just list them separated by '|' pipes, like "flagged:a|b|c".
+        //
+        // Events that occur at a specific location have the "in:<area>" and "location_flagged" switches.
+        // This switches will be ignored (not counted one way or the other) for events that don't have a known location.
+        // For "in:<area>" switches, 'area' is a world, noted cuboid, or noted ellipsoid.
         // So for example you might have an event line like "on player breaks block in:space:"
         // where space is the name of a world or of a noted cuboid.
         // This also works as "in:cuboid" or "in:ellipsoid" to match for *any* noted cuboid or ellipsoid.
+        // "location_flagged:<flag name>" works just like "server_flagged" or the player "flagged" switches, but for locations.
+        //
+        // All script events have priority switches (see <@link language script event priority>),
+        // All Bukkit events have bukkit priority switches (see <@link language bukkit event priority>),
+        // All cancellable script events have cancellation switches (see <@link language script event cancellation>).
+        //
+        // See also <@link language advanced script event matching>.
         // -->
 
         public boolean checkSwitch(String key, String value) {
@@ -132,7 +155,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             List<String> eventLabel = new ArrayList<>();
             for (String possible : CoreUtilities.split(event, ' ').toArray(new String[0])) {
                 List<String> split = CoreUtilities.split(possible, ':', 2);
-                if (split.size() > 1 && !CoreUtilities.equalsIgnoreCase(split.get(0), "regex")) {
+                if (split.size() > 1 && !CoreUtilities.equalsIgnoreCase(split.get(0), "regex") && !CoreUtilities.equalsIgnoreCase(split.get(0), "item_flagged")) {
                     switches.put(CoreUtilities.toLowerCase(split.get(0)), split.get(1));
                 }
                 else {
@@ -145,6 +168,9 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             switch_cancelled = switches.containsKey("cancelled") ? CoreUtilities.equalsIgnoreCase(switches.get("cancelled"), "true") : null;
             switch_ignoreCancelled = switches.containsKey("ignorecancelled") ? CoreUtilities.equalsIgnoreCase(switches.get("ignorecancelled"), "true") : null;
             set = container.getSetFor("events." + rawEventPath);
+            if (set == null || set.entries == null) {
+                Debug.echoError("Invalid script (formatting error?) in container '" + container.getName() + " at event '" + rawEventPath + "'.");
+            }
         }
 
         @Override
@@ -253,7 +279,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
                 Debug.log("Event " + path + " is matched to multiple ScriptEvents: " + CoreUtilities.join(", ", path.matches));
             }
             else if (path.matches.isEmpty()) {
-                Debug.log("Event " + path + " is not matched to any ScriptEvents.");
+                Debug.echoError("Event " + path + " is not matched to any ScriptEvents.");
             }
         }
         Debug.log("Processed " + paths.size() + " script event paths.");
@@ -384,7 +410,15 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     }
 
     public boolean matches(ScriptPath path) {
-        throw new UnsupportedOperationException("Matches not implemented for event '" + getName() + "'! Report this error to the Denizen developers!");
+        String flagSwitch = path.switches.get("server_flagged");
+        if (flagSwitch != null) {
+            for (String flag : CoreUtilities.split(flagSwitch, '|')) {
+                if (!DenizenCore.getImplementation().getServerFlags().hasFlag(flag)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     public abstract String getName();
@@ -419,6 +453,9 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
             if (path.container.shouldDebug()) {
                 Debug.echoDebug(path.container, "<Y>Running script event '<A>" + getName() + "<Y>', event='<A>" + (path.fireAfter ? "after " : "on ") + path.event + "<Y>'"
                         + " for script '<A>" + path.container.getName() + "<Y>'");
+            }
+            if (path.set == null) {
+                return;
             }
             List<ScriptEntry> entries = ScriptContainer.cleanDup(getScriptEntryData(), path.set);
             ScriptQueue queue = new InstantQueue(path.container.getName()).addEntries(entries);
@@ -507,6 +544,8 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     // Additionally, when you're really desperate for a good matcher, you may use 'regex:'
     // For example, "on player breaks regex:(?i)\d+_customitem:"
     // Note that generally regex should be avoided whenever you can, as it's inherently hard to track exactly what it's doing at-a-glance, and may have unexpected edge case errors.
+    //
+    // See also <@link language script event object matchables>.
     // -->
 
     public static abstract class MatchHelper {
@@ -525,7 +564,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     public static class ExactMatchHelper extends MatchHelper {
 
         public ExactMatchHelper(String text) {
-            this.text = text;
+            this.text = CoreUtilities.toLowerCase(text);
         }
 
         public String text;
@@ -539,7 +578,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     public static class PrefixAsteriskMatchHelper extends MatchHelper {
 
         public PrefixAsteriskMatchHelper(String text) {
-            this.text = text;
+            this.text = CoreUtilities.toLowerCase(text);
         }
 
         public String text;
@@ -553,7 +592,7 @@ public abstract class ScriptEvent implements ContextSource, Cloneable {
     public static class PostfixAsteriskMatchHelper extends MatchHelper {
 
         public PostfixAsteriskMatchHelper(String text) {
-            this.text = text;
+            this.text = CoreUtilities.toLowerCase(text);
         }
 
         public String text;

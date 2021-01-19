@@ -44,7 +44,7 @@ public class ListTag implements List<String>, ObjectTag {
     //
     // If the pipe symbol "|" appears in a list entry, it will be replaced by "&pipe",
     // similarly if an ampersand "&" appears in a list entry, it will be replaced by "&amp".
-    // This is a subset of Denizen standard escaping, see <@link language Escape Tags>.
+    // This is a subset of Denizen standard escaping, see <@link language Escaping System>.
     //
     // -->
 
@@ -211,9 +211,12 @@ public class ListTag implements List<String>, ObjectTag {
 
     @Override
     public <T> T[] toArray(T[] a) {
-        String[] stringArr = new String[size()];
-        for (int i = 0; i < stringArr.length; i++) {
+        String[] stringArr = (a instanceof String[] && a.length >= size()) ? (String[]) a : new String[size()];
+        for (int i = 0; i < size(); i++) {
             stringArr[i] = String.valueOf(getObject(i));
+        }
+        for (int i = size(); i < stringArr.length; i++) {
+            stringArr[i] = null;
         }
         return (T[]) stringArr;
     }
@@ -346,10 +349,7 @@ public class ListTag implements List<String>, ObjectTag {
         if (string == null) {
             return null;
         }
-        ListTag list = DenizenCore.getImplementation().valueOfFlagListTag(string);
-        if (list != null) {
-            return list;
-        }
+        ListTag list;
         if (string.startsWith("map@")) {
             MapTag map = MapTag.valueOf(string, context);
             list = new ListTag();
@@ -365,14 +365,19 @@ public class ListTag implements List<String>, ObjectTag {
     }
 
     public static ListTag getListFor(ObjectTag inp, TagContext context) {
-        return inp instanceof ListTag ? (ListTag) inp : valueOf(inp.toString(), context);
+        if (inp instanceof ListTag) {
+            return (ListTag) inp;
+        }
+        if (inp instanceof ElementTag) {
+            return valueOf(inp.toString(), context);
+        }
+        ListTag output = new ListTag(1);
+        output.addObject(inp);
+        return output;
     }
 
     public static boolean matches(String arg) {
-
-        boolean flag = DenizenCore.getImplementation().matchesFlagListTag(arg);
-
-        return flag || arg.contains("|") || arg.startsWith("li@");
+        return arg.contains("|") || arg.startsWith("li@");
     }
 
     @Override
@@ -382,7 +387,6 @@ public class ListTag implements List<String>, ObjectTag {
             objs.add(obj == null ? null : obj.duplicate());
         }
         ListTag result = new ListTag(objs);
-        result.flag = flag;
         return result;
     }
 
@@ -461,16 +465,6 @@ public class ListTag implements List<String>, ObjectTag {
         }
     }
 
-    public ListTag(String flag, boolean is_flag, List<String> flag_contents) {
-        if (is_flag) {
-            this.flag = flag;
-        }
-        objectForms = new ArrayList<>(flag_contents.size());
-        for (String str : flag_contents) {
-            objectForms.add(new ElementTag(str));
-        }
-    }
-
     public ListTag(ListTag input) {
         objectForms = new ArrayList<>(input.objectForms);
     }
@@ -533,7 +527,7 @@ public class ListTag implements List<String>, ObjectTag {
     }
 
     public <T extends ObjectTag> List<T> filter(Class<T> dClass, ScriptEntry entry) {
-        return filter(dClass, (entry == null ? CoreUtilities.basicContext : entry.entryData.getTagContext()), true);
+        return filter(dClass, entry == null ? CoreUtilities.basicContext : entry.entryData.getTagContext(), true);
     }
 
     public <T extends ObjectTag> List<T> filter(Class<T> dClass, Debuggable debugger, boolean showFailure) {
@@ -624,11 +618,9 @@ public class ListTag implements List<String>, ObjectTag {
         return debugText.substring(0, debugText.length() - " <G>|<Y> ".length());
     }
 
-    public String flag = null;
-
     @Override
     public boolean isUnique() {
-        return flag != null;
+        return false;
     }
 
     @Override
@@ -638,9 +630,6 @@ public class ListTag implements List<String>, ObjectTag {
 
     @Override
     public String identify() {
-        if (flag != null && size() == 1) {
-            return get(0);
-        }
         return identifyList();
     }
 
@@ -902,20 +891,25 @@ public class ListTag implements List<String>, ObjectTag {
         });
 
         // <--[tag]
-        // @attribute <ListTag.to_map>
+        // @attribute <ListTag.to_map[(<separator>)]>
         // @returns MapTag
         // @description
         // Interprets a list of "key/value" pairs as a map, and returns the resulting MapTag.
+        // Optionally specify the map separator symbol, by default '/'.
         // -->
         registerTag("to_map", (attribute, object) -> {
+            String symbol = "/";
+            if (attribute.hasContext(1)) {
+                symbol = attribute.getContext(1);
+            }
             MapTag map = new MapTag();
             for (String entry : object) {
-                int slash = entry.indexOf('/');
+                int slash = entry.indexOf(symbol);
                 if (slash == -1) {
                     return null;
                 }
                 String key = entry.substring(0, slash);
-                String value = entry.substring(slash + 1);
+                String value = entry.substring(slash + symbol.length());
                 map.putObject(key, new ElementTag(value));
             }
             return map;
@@ -1728,6 +1722,10 @@ public class ListTag implements List<String>, ObjectTag {
         // For example, you might sort a list of players based on their names, via .sort_by_value[name] on the list of valid players.
         // -->
         registerTag("sort_by_value", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag list.sort_by_value[...] must have input!");
+                return null;
+            }
             ListTag newlist = new ListTag(object);
             final NaturalOrderComparator comparator = new NaturalOrderComparator();
             final String tag = attribute.getRawContext(1);
@@ -1759,7 +1757,7 @@ public class ListTag implements List<String>, ObjectTag {
         // -->
         registerTag("sort_by_number", (attribute, object) -> {
             if (!attribute.hasContext(1)) {
-                attribute.echoError("Sort_By_Number must have an input value.");
+                attribute.echoError("Sort_By_Number[...] must have an input value.");
                 return null;
             }
             ListTag newlist = new ListTag(object);
@@ -2098,7 +2096,7 @@ public class ListTag implements List<String>, ObjectTag {
         // @description
         // returns a copy of the list with all its contents escaped.
         // Inverts <@link tag ListTag.unescape_contents>.
-        // See <@link language Escape Tags>.
+        // See <@link language Escaping System>.
         // -->
         registerTag("escape_contents", (attribute, object) -> {
             ListTag escaped = new ListTag();
@@ -2114,7 +2112,7 @@ public class ListTag implements List<String>, ObjectTag {
         // @description
         // returns a copy of the list with all its contents unescaped.
         // Inverts <@link tag ListTag.escape_contents>.
-        // See <@link language Escape Tags>.
+        // See <@link language Escaping System>.
         // -->
         registerTag("unescape_contents", (attribute, object) -> {
             ListTag escaped = new ListTag();
@@ -2301,11 +2299,6 @@ public class ListTag implements List<String>, ObjectTag {
     @Override
     public ObjectTag getObjectAttribute(Attribute attribute) {
         return tagProcessor.getObjectAttribute(this, attribute);
-    }
-
-    @Override
-    public ObjectTag getNextObjectTypeDown() {
-        return (flag != null && size() == 1) ? getObject(0) : new ElementTag(identifyList());
     }
 
     @Override

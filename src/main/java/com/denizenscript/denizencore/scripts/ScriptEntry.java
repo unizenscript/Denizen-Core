@@ -87,10 +87,9 @@ public class ScriptEntry implements Cloneable, Debuggable {
                 arg.fillStr(arg.object.toString());
             }
             else {
-                arg.value = arg.object.toString();
-                arg.lower_value = CoreUtilities.toLowerCase(arg.value);
-                arg.raw_value = arg.generateRaw();
+                arg.unsetValue();
             }
+            arg.canBeElement = arg.object instanceof ElementTag;
         }
         return aHArgs;
     }
@@ -98,8 +97,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
     public List<Argument> aHArgs;
 
     public List<String> args;
-
-    public List<ObjectTag> processed_arguments = null;
 
     public ScriptEntryData entryData;
 
@@ -149,7 +146,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
         try {
             ScriptEntry se = (ScriptEntry) super.clone();
             se.objects = new HashMap<>(8);
-            se.processed_arguments = processed_arguments == null ? null : new ArrayList<>(processed_arguments);
             se.args = new ArrayList<>(args);
             se.entryData = entryData.clone();
             se.entryData.scriptEntry = se;
@@ -166,14 +162,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
         return internal.insideList;
     }
 
-    /**
-     * Get a hot, fresh, script entry, ready for execution! Just supply a valid command,
-     * some arguments, and bonus points for a script container (can be null)!
-     *
-     * @param command   the name of the command this entry will be handed to
-     * @param arguments an array of the arguments
-     * @param script    optional ScriptContainer reference
-     */
     public ScriptEntry(String command, String[] arguments, ScriptContainer script) {
         this(command, arguments, script, null);
     }
@@ -189,7 +177,7 @@ public class ScriptEntry implements Cloneable, Debuggable {
                 internal.hasTags = true;
             }
         }
-        argVal.aHArg = new Argument(argVal.prefix == null ? null : argVal.prefix.aHArg.raw_value, arg);
+        argVal.aHArg = new Argument(argVal.prefix == null ? null : argVal.prefix.aHArg.getRawValue(), arg);
         argVal.aHArg.needsFill = isTag;
         argVal.aHArg.hasSpecialPrefix = argVal.prefix != null;
     }
@@ -317,11 +305,12 @@ public class ScriptEntry implements Cloneable, Debuggable {
                 }
                 InternalArgument argVal = new InternalArgument();
                 internal.args_ref.set(i, argVal);
-                int colon = TagManager.findColonNotTagNorSpace(arg);
-                if (colon > 0) {
+                int first_colon = arg.indexOf(':');
+                int first_not_prefix = Argument.prefixCharsAllowed.indexOfFirstNonMatch(arg);
+                if (first_colon > 0 && first_not_prefix >= first_colon) {
                     argVal.prefix = new InternalArgument();
-                    crunchInto(argVal.prefix, arg.substring(0, colon), refContext);
-                    arg = arg.substring(colon + 1);
+                    crunchInto(argVal.prefix, arg.substring(0, first_colon), refContext);
+                    arg = arg.substring(first_colon + 1);
                     if (!argVal.prefix.aHArg.needsFill) {
                         internal.argPrefixMap.put(argVal.prefix.aHArg.lower_value, i);
                     }
@@ -336,7 +325,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
             for (int i = 0; i < tempProcessArgs.size(); i++) {
                 internal.processArgs[i] = tempProcessArgs.get(i);
             }
-            objectify();
         }
         else {
             args = new ArrayList<>();
@@ -344,7 +332,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
             internal.pre_tagged_args = new ArrayList<>();
             internal.processArgs = new int[0];
             internal.args_ref = new ArrayList<>();
-            processed_arguments = new ArrayList<>();
             aHArgs = new ArrayList<>();
         }
         if (internal.actualCommand != null) {
@@ -438,13 +425,6 @@ public class ScriptEntry implements Cloneable, Debuggable {
     public ScriptEntry setArguments(List<String> arguments) {
         args = arguments;
         return this;
-    }
-
-    public void objectify() {
-        processed_arguments = new ArrayList<>(args.size());
-        for (String arg : args) {
-            processed_arguments.add(new ElementTag(arg));
-        }
     }
 
     private ScriptEntry owner = null;

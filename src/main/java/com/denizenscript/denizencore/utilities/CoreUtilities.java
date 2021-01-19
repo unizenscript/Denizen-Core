@@ -52,7 +52,10 @@ public class CoreUtilities {
         if (obj == null) {
             return new ElementTag("null");
         }
-        else if (obj instanceof List) {
+        if (obj instanceof YamlConfiguration) {
+            obj = ((YamlConfiguration) obj).contents;
+        }
+        if (obj instanceof List) {
             ListTag listResult = new ListTag();
             for (Object subObj : (List) obj) {
                 listResult.addObject(objectToTagForm(subObj, context, scriptStrip, doParse));
@@ -157,13 +160,23 @@ public class CoreUtilities {
     }
 
     public static String replace(String original, String findMe, String swapMeIn) {
-        // This is jank but still better than Java's regex-driven String#replace method.
-        int lastIndex = original.indexOf(findMe);
-        while (lastIndex >= 0) {
-            original = original.substring(0, lastIndex) + swapMeIn + original.substring(lastIndex + findMe.length());
-            lastIndex = original.indexOf(findMe, lastIndex + swapMeIn.length());
+        int firstIndex = original.indexOf(findMe);
+        if (firstIndex < 0) {
+            return original;
         }
-        return original;
+        int lastIndex = original.lastIndexOf(findMe);
+        if (firstIndex == lastIndex) {
+            return original.substring(0, firstIndex) + swapMeIn + original.substring((lastIndex + findMe.length()));
+        }
+        StringBuilder output = new StringBuilder(original.length() * 2);
+        int prevIndex = 0;
+        while (firstIndex != -1) {
+            output.append(original, prevIndex, firstIndex).append(swapMeIn);
+            prevIndex = firstIndex + findMe.length();
+            firstIndex = original.indexOf(findMe, prevIndex);
+        }
+        output.append(original, prevIndex, original.length());
+        return output.toString();
     }
 
     public static String join(String delim, List objects) {
@@ -301,8 +314,9 @@ public class CoreUtilities {
         if (inp.getObjectTagClass() == type) {
             return (T) inp;
         }
-        if (type == ElementTag.class) {
-            return (T) new ElementTag(inp.toString());
+        TagTypeConverter converter = typeConverters.get(type);
+        if (converter != null) {
+            return (T) converter.convert(inp, context);
         }
         return ObjectFetcher.getObjectFrom(type, inp.toString(), context);
     }
@@ -311,30 +325,54 @@ public class CoreUtilities {
         public abstract boolean canBecome(ObjectTag inp);
     }
 
-    public final static Map<Class<? extends ObjectTag>, TypeComparisonRunnable> typeCheckers = new HashMap<>();
+    @FunctionalInterface
+    public static interface TagTypeConverter {
+        public abstract ObjectTag convert(ObjectTag inp, TagContext context);
+    }
+
+    public static Map<Class<? extends ObjectTag>, TypeComparisonRunnable> typeCheckers = new HashMap<>();
+
+    public static Map<Class<? extends ObjectTag>, TagTypeConverter> typeConverters = new HashMap<>();
 
     static {
         registerTypeAsTrueAlways(ElementTag.class);
         registerTypeAsTrueAlways(ListTag.class);
-        registerTypeAsNoOtherTypeCode(ScriptTag.class, "s");
-        registerTypeAsNoOtherTypeCode(DurationTag.class, "d");
         registerTypeAsNoOtherTypeCode(CustomObjectTag.class, "custom");
+        registerTypeAsNoOtherTypeCode(DurationTag.class, "d");
+        registerTypeAsNoOtherTypeCode(MapTag.class, "map");
         registerTypeAsNoOtherTypeCode(QueueTag.class, "q");
+        registerTypeAsNoOtherTypeCode(ScriptTag.class, "s");
+        registerTypeAsNoOtherTypeCode(TimeTag.class, "d");
+        typeConverters.put(ElementTag.class, (obj, c) -> (obj instanceof ElementTag) ? obj : new ElementTag(obj.toString()));
+        typeConverters.put(ListTag.class, ListTag::getListFor);
+        typeConverters.put(MapTag.class, MapTag::getMapFor);
     }
 
     public static void registerTypeAsNoOtherTypeCode(Class<? extends ObjectTag> type, final String knownCode) {
         typeCheckers.put(type, new TypeComparisonRunnable() {
             @Override
             public boolean canBecome(ObjectTag inp) {
-                String simple = inp.identifySimple();
-                int atIndex = simple.indexOf('@');
-                if (atIndex != -1) {
-                    String code = simple.substring(0, atIndex);
-                    if (!code.equals(knownCode) && !code.equals("el")) {
-                        return false;
-                    }
+                if (inp == null) {
+                    return false;
                 }
-                return true;
+                Class<? extends ObjectTag> inpType = inp.getObjectTagClass();
+                if (inpType == type) {
+                    return true;
+                }
+                if (inpType == ElementTag.class) {
+                    String simple = inp.identifySimple();
+                    int atIndex = simple.indexOf('@');
+                    if (atIndex != -1) {
+                        String code = simple.substring(0, atIndex);
+                        if (!code.equals(knownCode) && !code.equals("el")) {
+                            if (ObjectFetcher.objectsByPrefix.containsKey(code)) {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                }
+                return false;
             }
         });
     }
@@ -376,13 +414,23 @@ public class CoreUtilities {
                 });
     }
 
-    public static void copyDirectory(File source, File destination) throws IOException {
-        copyDirectory(source.toPath(), destination.toPath());
+    public static void copyDirectory(File source, File destination, HashSet<String> excludeExtensions) throws IOException {
+        copyDirectory(source.toPath(), destination.toPath(), excludeExtensions);
     }
 
-    public static void copyDirectory(Path source, Path destination) throws IOException {
+    public static void copyDirectory(Path source, Path destination, HashSet<String> excludeExtensions) throws IOException {
         Files.walk(source).forEach(file -> {
             try {
+                if (excludeExtensions != null) {
+                    String name = file.getFileName().toString();
+                    int dot = name.indexOf('.');
+                    if (dot >= 0) {
+                        String ext = toLowerCase(name.substring(dot + 1));
+                        if (excludeExtensions.contains(ext)) {
+                            return;
+                        }
+                    }
+                }
                 Files.copy(file, destination.resolve(source.relativize(file)));
             }
             catch (IOException ex) {
@@ -430,10 +478,17 @@ public class CoreUtilities {
         }
         return temp;
     }
+
     public static DecimalFormat df = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+    public static DecimalFormat floatFormat = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
 
     static {
         df.setMaximumFractionDigits(340);
+        floatFormat.setMaximumFractionDigits(8);
+    }
+
+    public static String doubleToString(float input) {
+        return floatFormat.format(input);
     }
 
     public static String doubleToString(double input) {

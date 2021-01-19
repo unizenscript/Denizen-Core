@@ -43,7 +43,7 @@ public class DefineCommand extends AbstractCommand {
     // Definitions are lighter and faster than creating a temporary flag.
     // Definitions are also automatically removed when the queue is completed, so there is no worry for leaving unused data hanging around.
     //
-    // Refer to <@link language data actions>
+    // This command supports data actions, see <@link language data actions>.
     //
     // @Tags
     // <[<id>]> to get the value assigned to an ID
@@ -98,17 +98,17 @@ public class DefineCommand extends AbstractCommand {
     public void parseArgs(ScriptEntry scriptEntry) throws InvalidArgumentsException {
         for (Argument arg : scriptEntry.getProcessedArgs()) {
             if (!scriptEntry.hasObject("definition")) {
-                if (CoreUtilities.contains(arg.raw_value, ':')) {
+                if (CoreUtilities.contains(arg.getRawValue(), ':')) {
                     DefinitionActionProvider provider = new DefinitionActionProvider();
                     provider.queue = scriptEntry.getResidingQueue();
-                    scriptEntry.addObject("action", DataActionHelper.parse(provider, arg.raw_value));
+                    scriptEntry.addObject("action", DataActionHelper.parse(provider, arg, scriptEntry.context));
                 }
                 else {
                     scriptEntry.addObject("definition", new ElementTag(CoreUtilities.toLowerCase(arg.getValue())));
                 }
             }
             else if (!scriptEntry.hasObject("value")) {
-                scriptEntry.addObject("value", arg.object instanceof ElementTag ? new ElementTag(arg.raw_value) : arg.object);
+                scriptEntry.addObject("value", arg.object instanceof ElementTag ? new ElementTag(arg.getRawValue()) : arg.object);
             }
             else {
                 arg.reportUnhandled();
@@ -124,8 +124,7 @@ public class DefineCommand extends AbstractCommand {
         ElementTag definition = scriptEntry.getElement("definition");
         ObjectTag value = scriptEntry.getObjectTag("value");
         ElementTag remove = scriptEntry.getElement("remove");
-        Object actionObj = scriptEntry.getObject("action");
-        DataAction action = actionObj == null ? null : (DataAction) actionObj;
+        DataAction action = (DataAction) scriptEntry.getObject("action");
         if (scriptEntry.dbCallShouldDebug()) {
             Debug.report(scriptEntry, getName(), ArgumentHelper.debugObj("queue", scriptEntry.getResidingQueue().id)
                     + (definition == null ? "" : definition.debug())

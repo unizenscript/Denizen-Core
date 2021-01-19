@@ -1,5 +1,6 @@
 package com.denizenscript.denizencore.objects.core;
 
+import com.denizenscript.denizencore.events.ScriptEvent;
 import com.denizenscript.denizencore.objects.*;
 import com.denizenscript.denizencore.scripts.commands.Comparable;
 import com.denizenscript.denizencore.tags.*;
@@ -677,7 +678,7 @@ public class ElementTag implements ObjectTag {
         // @description
         // Returns the element, escaped for safe reuse.
         // Inverts <@link tag ElementTag.unescaped>.
-        // See <@link language Escape Tags>.
+        // See <@link language Escaping System>.
         // -->
         registerTag("escaped", (attribute, object) -> {
             String element = object.element;
@@ -703,7 +704,7 @@ public class ElementTag implements ObjectTag {
         // @description
         // Returns the element, unescaped.
         // Inverts <@link tag ElementTag.escaped>.
-        // See <@link language Escape Tags>.
+        // See <@link language Escaping System>.
         // -->
         registerTag("unescaped", (attribute, object) -> {
             String element = object.element;
@@ -809,10 +810,8 @@ public class ElementTag implements ObjectTag {
         registerTag("contains_text", (attribute, object) -> {
             String element = object.element;
             String contains = attribute.getContext(1);
-
             if (CoreUtilities.toLowerCase(contains).startsWith("regex:")) {
-
-                if (Pattern.compile(contains.substring(("regex:").length()), Pattern.CASE_INSENSITIVE).matcher(element).matches()) {
+                if (Pattern.compile(contains.substring(("regex:").length()), Pattern.CASE_INSENSITIVE).matcher(element).find()) {
                     return new ElementTag("true");
                 }
                 else {
@@ -895,19 +894,34 @@ public class ElementTag implements ObjectTag {
         }, "equals_with_case");
 
         // <--[tag]
-        // @attribute <ElementTag.matches[<regex>]>
+        // @attribute <ElementTag.advanced_matches[<matcher>]>
+        // @returns ElementTag(Boolean)
+        // @group element checking
+        // @description
+        // Returns whether the element matches some matcher text, using the system behind <@link language Advanced Script Event Matching>.
+        // -->
+        registerTag("advanced_matches", (attribute, object) -> {
+            if (!attribute.hasContext(1)) {
+                attribute.echoError("The tag ElementTag.advanced_matches[...] must have a value.");
+                return null;
+            }
+            return new ElementTag(ScriptEvent.createMatcher(attribute.getContext(1)).doesMatch(object.element));
+        });
+
+        // <--[tag]
+        // @attribute <ElementTag.regex_matches[<regex>]>
         // @returns ElementTag(Boolean)
         // @group element checking
         // @description
         // Returns whether the element matches a regex input.
         // -->
-        registerTag("matches", (attribute, object) -> {
+        registerTag("regex_matches", (attribute, object) -> {
             if (!attribute.hasContext(1)) {
                 attribute.echoError("The tag ElementTag.matches[...] must have a value.");
                 return null;
             }
             return new ElementTag(object.element.matches(attribute.getContext(1)));
-        });
+        }, "matches");
 
         // <--[tag]
         // @attribute <ElementTag.regex[<regex>].group[<group>]>
